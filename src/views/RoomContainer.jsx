@@ -94,124 +94,41 @@ const RoomContainer = () => {
     }
   }, [roomInfo?.step]);
 
-  const handleOnboardSubmit = (e) => {
-    e.preventDefault();
-    if (!nickname.trim()) {
-      setOnboardError('사용하실 닉네임을 입력해 주세요.');
-      return;
+  // Auto-onboard guest immediately without prompt
+  useEffect(() => {
+    if (!currentUser) {
+      const guestNumber = participants.length + 1;
+      const randomEmoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+      const randomColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+      
+      // Delay slightly for smooth transition
+      const timer = setTimeout(() => {
+        onboardUser({
+          name: `참여자 ${guestNumber}`,
+          emoji: randomEmoji,
+          color: randomColor.name,
+          isHost: false
+        });
+      }, 800);
+      return () => clearTimeout(timer);
     }
-    
-    onboardUser({
-      name: nickname.trim(),
-      emoji: selectedEmoji,
-      color: selectedColor.name
-    });
-  };
+  }, [currentUser, participants.length, onboardUser]);
 
-  // If user is not onboarded, show the premium onboarding modal
+  // If user is not onboarded, show the premium auto-onboarding loader
   if (!currentUser) {
     return (
-      <div className="min-h-screen flex flex-col justify-center items-center py-6 px-4 z-10 animate-fade-in-up bg-[#f8fafc]">
-        <div className="glass-card rounded-3xl p-6 w-full max-w-md space-y-6 relative overflow-hidden border border-slate-200/60 shadow-xl">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-[#C00A4A]/5 rounded-full blur-xl"></div>
-          
-          <div className="text-center space-y-2">
-            <span className="px-3 py-1 text-[10px] font-bold bg-[#C00A4A]/10 text-[#C00A4A] border border-[#C00A4A]/20 rounded-full uppercase tracking-widest font-mono">
-              GUEST PROFILE
-            </span>
-            <h2 className="text-xl font-extrabold text-slate-800 mt-2 select-none">
-              약속 참가 프로필 설정
-            </h2>
-            <p className="text-[11px] text-slate-400 font-semibold leading-relaxed">
-              약속 방 <span className="font-mono font-extrabold text-[#C00A4A]">{roomCode}</span>에 입장하기 위해<br/>
-              간편한 닉네임과 아바타를 정해 주세요.
+      <div className="min-h-screen flex flex-col justify-center items-center py-6 px-4 bg-[#f8fafc]">
+        <div className="glass-card rounded-3xl p-8 w-full max-w-sm text-center space-y-4 border border-slate-200/60 shadow-xl animate-fade-in-up">
+          <div className="w-12 h-12 rounded-full bg-[#C00A4A]/10 text-[#C00A4A] flex items-center justify-center mx-auto animate-pulse">
+            <Sparkles className="w-6 h-6" />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="font-extrabold text-slate-800 text-base">⚡ 초고속 즉시 입장 중</h3>
+            <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+              번거로운 로그인이나 프로필 설정 없이<br />
+              참여자 아바타와 임시 아이디를 자동 생성하고 있습니다.
             </p>
           </div>
-
-          <form onSubmit={handleOnboardSubmit} className="space-y-5">
-            {/* Nickname Input */}
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                사용할 이름
-              </label>
-              <input
-                type="text"
-                value={nickname}
-                onChange={(e) => { setNickname(e.target.value); setOnboardError(''); }}
-                placeholder="예) 홍길동, 지민"
-                maxLength={8}
-                className="w-full glass-input rounded-2xl py-3.5 px-4 font-bold text-center text-lg text-slate-800 focus:border-[#C00A4A] transition-colors"
-              />
-            </div>
-
-            {/* Emoji Selector */}
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                이모지 아바타 선택 ({selectedEmoji})
-              </label>
-              <div className="grid grid-cols-8 gap-2 bg-slate-50 border border-slate-200/50 rounded-2xl p-3 max-h-32 overflow-y-auto">
-                {EMOJIS.map((emo, idx) => (
-                  <button
-                    type="button"
-                    key={idx}
-                    onClick={() => setSelectedEmoji(emo)}
-                    className={`w-9 h-9 flex items-center justify-center text-xl rounded-xl transition-all transform active:scale-90 cursor-pointer ${
-                      selectedEmoji === emo
-                        ? 'bg-[#C00A4A] text-white scale-110 shadow-md shadow-pink-900/10'
-                        : 'hover:bg-slate-200/50 text-slate-700'
-                    }`}
-                  >
-                    {emo}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Personal Color Selection */}
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                퍼스널 컬러 지정
-              </label>
-              <div className="flex flex-wrap gap-2.5 justify-center py-3 bg-slate-50 border border-slate-200/50 rounded-2xl px-2">
-                {COLORS.map((col) => {
-                  const isSelected = selectedColor.name === col.name;
-                  return (
-                    <button
-                      type="button"
-                      key={col.name}
-                      onClick={() => setSelectedColor(col)}
-                      className="w-8 h-8 rounded-full border-2 transition-all relative transform active:scale-90 cursor-pointer"
-                      style={{ 
-                        backgroundColor: col.hex, 
-                        borderColor: isSelected ? '#ffffff' : 'transparent',
-                        boxShadow: isSelected ? `0 0 8px ${col.hex}, 0 2px 4px rgba(0,0,0,0.1)` : 'none'
-                      }}
-                      title={col.name}
-                    >
-                      {isSelected && (
-                        <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-slate-800 shadow-sm select-none">
-                          ✓
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {onboardError && (
-              <p className="text-[#C00A4A] text-xs font-bold bg-[#C00A4A]/5 border border-[#C00A4A]/10 py-2.5 px-3 rounded-xl text-center">
-                ⚠️ {onboardError}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              className="w-full py-4 bg-gradient-to-r from-[#C00A4A] to-[#a3083e] hover:from-[#b00943] hover:to-[#910737] text-white rounded-2xl font-extrabold flex items-center justify-center gap-1 shadow-lg shadow-pink-900/10 hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer"
-            >
-              입장하기
-            </button>
-          </form>
         </div>
       </div>
     );

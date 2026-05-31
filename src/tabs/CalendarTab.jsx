@@ -32,6 +32,25 @@ const CalendarTab = ({ setActiveTab }) => {
   const [selectedDate, setSelectedDate] = useState(roomStartDate);
   const [currentMonth, setCurrentMonth] = useState(() => new Date(roomStartDate));
 
+  const [pickerHour, setPickerHour] = useState('12');
+  const [pickerMinute, setPickerMinute] = useState('00');
+
+  const hourOptions = useMemo(() => Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')), []);
+  const minuteOptions = useMemo(() => ['00', '10', '20', '30', '40', '50'], []);
+
+  // Get active (voted) slots for selectedDate
+  const votedSlotsForSelectedDate = useMemo(() => {
+    const arr = [];
+    MINUTES_10.forEach(time => {
+      const cellKey = `${selectedDate}_${time}`;
+      const votes = calendarVotes[cellKey] || [];
+      if (votes.length > 0) {
+        arr.push({ time, votes, key: cellKey });
+      }
+    });
+    return arr.sort((a, b) => a.time.localeCompare(b.time));
+  }, [selectedDate, calendarVotes]);
+
   const [isDragging, setIsDragging] = useState(false);
   const [dragMode, setDragMode] = useState(null); // 'add' or 'remove'
   const draggedCellsRef = useRef(new Set());
@@ -365,114 +384,161 @@ const CalendarTab = ({ setActiveTab }) => {
         </div>
 
         {/* Right Side: Timeline Selection Panel */}
-        <div className="w-full lg:w-[320px] glass-card rounded-2xl border border-slate-200/50 p-4 bg-white shadow-md flex flex-col">
+        <div className="w-full lg:w-[320px] glass-card rounded-2xl border border-slate-200/50 p-4 bg-white shadow-md flex flex-col space-y-4 justify-between">
+          
           {/* Header information for timeline */}
-          <div className="flex flex-col border-b border-slate-100 pb-3 mb-3 gap-2">
-            <div>
-              <span className="text-xs font-bold text-[#C00A4A] uppercase tracking-wider">시간 선택 (10분 단위)</span>
-              <h4 className="text-sm font-extrabold text-slate-800 leading-tight truncate mt-0.5">
-                {formattedSelectedDate}
-              </h4>
-            </div>
-            
-            {/* Quick Actions (Select All, Deselect All) */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleSelectAllDay}
-                className="flex-1 py-1.5 px-2 border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-600 rounded-lg flex items-center justify-center gap-1 transition-all cursor-pointer"
-              >
-                <CheckSquare className="w-3.5 h-3.5 text-slate-500" />
-                전체 선택
-              </button>
-              <button
-                onClick={handleClearAllDay}
-                className="flex-1 py-1.5 px-2 border border-slate-200 hover:bg-slate-50 text-xs font-bold text-slate-600 rounded-lg flex items-center justify-center gap-1 transition-all cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                선택 취소
-              </button>
-            </div>
+          <div className="flex flex-col border-b border-slate-100 pb-2.5 gap-1 shrink-0">
+            <span className="text-xs font-bold text-[#C00A4A] uppercase tracking-wider">시간 선택 (10분 다이얼)</span>
+            <h4 className="text-sm font-extrabold text-slate-800 leading-tight truncate">
+              {formattedSelectedDate}
+            </h4>
           </div>
 
-          {/* Timeline list scroll area */}
-          <div className="flex-1 overflow-y-auto max-h-[320px] lg:max-h-[360px] pr-1.5 space-y-1.5 scrollbar-thin">
-            {MINUTES_10.map((time) => {
-              const cellKey = `${selectedDate}_${time}`;
-              const cellVotes = calendarVotes[cellKey] || [];
-              const isUserVoted = currentUser ? cellVotes.includes(currentUser.id) : false;
-              const isBest = bestCell === cellKey && maxVotes > 0;
+          {/* Premium Birthdate-style Double Wheel Dial Picker */}
+          <div className="flex flex-col gap-3 shrink-0">
+            <div className="flex items-center justify-center bg-slate-50 border border-slate-200/50 rounded-2xl relative h-28 w-full overflow-hidden shadow-inner px-4 select-none">
+              {/* Highlight selection bracket in the center */}
+              <div className="absolute left-2 right-2 top-10 h-8 border-y border-[#C00A4A]/20 bg-[#C00A4A]/5 pointer-events-none rounded-lg" />
               
-              // Validate if the slot is in the past
-              const cellDateTime = new Date(`${selectedDate}T${time}:00`);
-              const isPast = cellDateTime < new Date();
+              {/* Top & Bottom 3D mask fades */}
+              <div className="absolute left-0 right-0 top-0 h-8 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none z-10" />
+              <div className="absolute left-0 right-0 bottom-0 h-8 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none z-10" />
+              
+              {/* Hour Wheel Dial Column */}
+              <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10" style={{ scrollSnapType: 'y mandatory' }}>
+                {hourOptions.map(h => {
+                  const isSel = pickerHour === h;
+                  return (
+                    <button
+                      type="button"
+                      key={h}
+                      onClick={() => setPickerHour(h)}
+                      className={`w-full h-8 flex items-center justify-center text-sm font-bold snap-center cursor-pointer transition-all ${
+                        isSel ? 'text-[#C00A4A] text-lg font-black scale-110' : 'text-slate-400 hover:text-slate-600'
+                      }`}
+                    >
+                      {h}시
+                    </button>
+                  );
+                })}
+              </div>
 
+              {/* Center Divider colon */}
+              <span className="text-slate-400 font-extrabold px-1 z-20">:</span>
+
+              {/* Minute Wheel Dial Column */}
+              <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10" style={{ scrollSnapType: 'y mandatory' }}>
+                {minuteOptions.map(m => {
+                  const isSel = pickerMinute === m;
+                  return (
+                    <button
+                      type="button"
+                      key={m}
+                      onClick={() => setPickerMinute(m)}
+                      className={`w-full h-8 flex items-center justify-center text-sm font-bold snap-center cursor-pointer transition-all ${
+                        isSel ? 'text-[#C00A4A] text-lg font-black scale-110' : 'text-slate-400 hover:text-slate-600'
+                      }`}
+                    >
+                      {m}분
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Dial Vote Button */}
+            {(() => {
+              const targetTime = `${pickerHour}:${pickerMinute}`;
+              const targetKey = `${selectedDate}_${targetTime}`;
+              const isVoted = currentUser && (calendarVotes[targetKey] || []).includes(currentUser.id);
+              
               return (
-                <div
-                  key={time}
-                  onMouseDown={() => !isPast && handleCellMouseDown(cellKey)}
-                  onMouseEnter={() => !isPast && handleCellMouseEnter(cellKey)}
-                  onTouchStart={() => !isPast && handleCellMouseDown(cellKey)}
-                  className={`flex items-center justify-between p-2 rounded-xl border select-none transition-all cursor-pointer ${
-                    isPast
-                      ? 'bg-slate-50/50 border-slate-100 opacity-30 cursor-not-allowed pointer-events-none'
-                      : isUserVoted
-                        ? 'bg-[#C00A4A]/10 border-[#C00A4A]/30 shadow-inner'
-                        : isBest
-                          ? 'bg-rose-50/70 border-rose-200'
-                          : 'bg-slate-50 hover:bg-slate-100 border-slate-100 hover:scale-[1.01]'
+                <button
+                  onClick={() => {
+                    if (!currentUser) return;
+                    toggleTimeVotes([targetKey], !isVoted);
+                  }}
+                  className={`w-full py-3 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer ${
+                    isVoted
+                      ? 'bg-rose-50 border border-[#C00A4A]/30 text-[#C00A4A]'
+                      : 'bg-[#C00A4A] hover:bg-[#9e083d] text-white'
                   }`}
                 >
-                  {/* Left: Time display */}
-                  <div className="flex items-center gap-2">
-                    <Clock className={`w-4 h-4 ${isUserVoted ? 'text-[#C00A4A]' : 'text-slate-400'}`} />
-                    <span className={`text-sm font-mono font-bold ${isUserVoted ? 'text-[#C00A4A] font-extrabold text-base' : 'text-slate-700'}`}>
-                      {time}
-                    </span>
-                    {isBest && !isPast && (
-                      <span className="text-[9px] font-extrabold bg-[#C00A4A] text-white px-1.5 py-0.5 rounded uppercase leading-none">
-                        Best
-                      </span>
-                    )}
-                  </div>
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
+                  {pickerHour}:{pickerMinute} {isVoted ? '투표 취소' : '이 시간 투표'}
+                </button>
+              );
+            })()}
+          </div>
 
-                  {/* Right: Vote counts and avatars */}
-                  <div className="flex items-center gap-2.5">
-                    {!isPast && (
-                      <div className="flex -space-x-1.5 overflow-hidden">
-                        {cellVotes.slice(0, 3).map((voterId) => (
-                          <div
-                            key={voterId}
-                            className="w-4.5 h-4.5 rounded-full border border-white flex items-center justify-center text-[10px] shadow-sm font-bold"
-                            style={{ backgroundColor: getParticipantColor(voterId) }}
-                          >
-                            {getParticipantEmoji(voterId)}
-                          </div>
-                        ))}
-                        {cellVotes.length > 3 && (
-                          <div className="w-4.5 h-4.5 rounded-full bg-slate-200 border border-white flex items-center justify-center text-[8px] font-extrabold text-slate-600">
-                            +{cellVotes.length - 3}
-                          </div>
+          {/* Voted chips panel */}
+          <div className="flex-1 flex flex-col justify-start overflow-hidden">
+            <span className="text-[10px] font-bold text-slate-400 mb-1.5 block shrink-0">투표 현황 (선택된 일자)</span>
+            {votedSlotsForSelectedDate.length === 0 ? (
+              <div className="bg-slate-50/50 border border-dashed border-slate-200 rounded-xl p-4 text-center text-xs text-slate-400 font-semibold leading-relaxed my-auto">
+                아직 투표된 시간대가 없습니다.<br />
+                위의 다이얼을 굴려 시간을 선택해 보세요!
+              </div>
+            ) : (
+              <div className="space-y-1.5 overflow-y-auto max-h-[140px] pr-1 scrollbar-thin">
+                {votedSlotsForSelectedDate.map(({ time, votes, key }) => {
+                  const isUserVoted = currentUser ? votes.includes(currentUser.id) : false;
+                  const isBest = bestCell === key && maxVotes > 0;
+                  return (
+                    <div
+                      key={time}
+                      onClick={() => {
+                        const [h, m] = time.split(':');
+                        setPickerHour(h);
+                        setPickerMinute(m);
+                      }}
+                      className={`flex items-center justify-between p-2 rounded-xl border select-none transition-all cursor-pointer ${
+                        isUserVoted
+                          ? 'bg-[#C00A4A]/5 border-[#C00A4A]/25'
+                          : 'bg-white border-slate-100 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-xs font-mono font-bold ${isUserVoted ? 'text-[#C00A4A] font-extrabold' : 'text-slate-700'}`}>
+                          {time}
+                        </span>
+                        {isBest && (
+                          <span className="text-[8px] font-extrabold bg-[#C00A4A] text-white px-1 py-0.5 rounded leading-none">
+                            Best
+                          </span>
                         )}
                       </div>
-                    )}
-                    <span className={`text-xs font-extrabold w-10 text-right ${
-                      isPast 
-                        ? 'text-slate-350' 
-                        : cellVotes.length > 0 
-                          ? 'text-[#C00A4A] font-black' 
-                          : 'text-slate-500'
-                    }`}>
-                      {isPast ? '-' : `${participants.length > 0 ? Math.round((cellVotes.length / participants.length) * 100) : 0}%`}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+                      <div className="flex items-center gap-2">
+                        <div className="flex -space-x-1 overflow-hidden">
+                          {votes.slice(0, 3).map((vId) => (
+                            <div
+                              key={vId}
+                              className="w-4 h-4 rounded-full border border-white flex items-center justify-center text-[8px]"
+                              style={{ backgroundColor: getParticipantColor(vId) }}
+                            >
+                              {getParticipantEmoji(vId)}
+                            </div>
+                          ))}
+                          {votes.length > 3 && (
+                            <div className="w-4 h-4 rounded-full bg-slate-200 border border-white flex items-center justify-center text-[7px] font-extrabold text-slate-600">
+                              +{votes.length - 3}
+                            </div>
+                          )}
+                        </div>
+                        <span className={`text-[10px] font-bold ${isUserVoted ? 'text-[#C00A4A]' : 'text-slate-400'}`}>
+                          {participants.length > 0 ? Math.round((votes.length / participants.length) * 100) : 0}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div>
       </div>
     </div>
-  );
+  </div>
+);
 };
 
 export default CalendarTab;

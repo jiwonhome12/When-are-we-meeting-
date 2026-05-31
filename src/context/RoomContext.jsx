@@ -59,6 +59,17 @@ export const RoomProvider = ({ children }) => {
               activeRooms.push({ code: codeParam, title: db.roomInfo.title, type: db.roomInfo.type, createdAt: db.roomInfo.createdAt });
               localStorage.setItem('baro_yaksok_active_rooms', JSON.stringify(activeRooms));
             }
+          } else {
+            // No local DB found (guest entering via shared URL link on a different browser/tab)
+            // Initialize roomCode and placeholder roomInfo to trigger BroadcastChannel sync!
+            setRoomCode(codeParam);
+            setRoomInfo({
+              code: codeParam,
+              title: '약속방 연결 중...',
+              type: '☕ 모임',
+              step: 'active',
+              createdAt: new Date().toISOString()
+            });
           }
         } catch (err) {
           console.warn("Auto-join from URL failed:", err);

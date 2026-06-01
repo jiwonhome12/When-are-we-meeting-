@@ -39,7 +39,7 @@ const RoomContainer = () => {
   useEffect(() => {
     if (window.Kakao && !window.Kakao.isInitialized()) {
       try {
-        window.Kakao.init('849ee984e85bceda41fd0849b6ba6a05');
+        window.Kakao.init('52676185e6ab4757a2192df59830c338');
       } catch (err) {
         console.error("Kakao SDK initialization error:", err);
       }

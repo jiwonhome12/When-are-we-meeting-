@@ -170,6 +170,29 @@ const AppContent = () => {
     }, 1200);
   };
 
+  const handleGuestLogin = () => {
+    setToastMessage('비회원 일회성 계정 생성 중...');
+    setShowToast(true);
+    
+    setTimeout(() => {
+      const guestId = `guest_${Math.random().toString(36).substring(2, 9)}`;
+      const randomEmoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+      const randomColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+      
+      onboardUser({
+        id: guestId,
+        name: '비회원',
+        emoji: randomEmoji,
+        color: randomColor.name,
+        isHost: false,
+        isGuest: true
+      });
+      
+      setShowToast(false);
+      setCurrentView('profile-setup');
+    }, 800);
+  };
+
   const handleWizardSubmit = (e) => {
     e.preventDefault();
     if (!wizardName.trim()) {
@@ -181,7 +204,8 @@ const AppContent = () => {
       name: wizardName.trim(),
       emoji: wizardEmoji,
       color: wizardColor.name,
-      isHost: true
+      isHost: currentUser?.isGuest ? false : true,
+      isGuest: currentUser?.isGuest || false
     });
     setToastMessage('✓ 프로필 설정이 완료되었습니다!');
     setShowToast(true);
@@ -302,6 +326,15 @@ const AppContent = () => {
                 간편 로그인 시 자동으로 회원가입이 처리되어<br/>
                 가장 빠르고 간편하게 모임을 시작할 수 있습니다.
               </p>
+            </div>
+
+            <div className="pt-2 flex justify-center">
+              <button
+                onClick={handleGuestLogin}
+                className="text-[11px] text-slate-400 hover:text-[#C00A4A] font-bold underline underline-offset-4 cursor-pointer transition-colors"
+              >
+                비회원 로그인으로 계속하기
+              </button>
             </div>
           </div>
 

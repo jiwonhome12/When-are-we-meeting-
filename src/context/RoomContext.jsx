@@ -251,15 +251,16 @@ export const RoomProvider = ({ children }) => {
 
   // 3. 게스트 온보딩 (이름, 이모지, 퍼스널 컬러)
   const onboardUser = (profile) => {
-    const userId = currentUser?.id || `user_${Math.random().toString(36).substring(2, 9)}`;
-    const isHost = participants.length === 0 && !roomInfo?.isPrivate; // first joiner is host if not private or room empty
+    const userId = profile.id || currentUser?.id || `user_${Math.random().toString(36).substring(2, 9)}`;
+    const isHost = participants.length === 0 && !roomInfo?.isPrivate && !profile.isGuest;
     
     const newUser = {
       id: userId,
       name: profile.name || '참여자',
       emoji: profile.emoji || DEFAULT_EMOJIS[Math.floor(Math.random() * DEFAULT_EMOJIS.length)],
       color: profile.color || DEFAULT_COLORS[Math.floor(Math.random() * DEFAULT_COLORS.length)],
-      isHost: isHost || profile.isHost || false
+      isHost: profile.isHost || (isHost && !profile.isGuest) || false,
+      isGuest: profile.isGuest || currentUser?.isGuest || false
     };
 
     setCurrentUser(newUser);

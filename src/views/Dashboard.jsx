@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useRoom } from '../context/RoomContext';
-import { Plus, ArrowRight, Lock, Calendar, History, Hash } from 'lucide-react';
+import { Plus, ArrowRight, Lock, Calendar, History, Hash, ShieldAlert } from 'lucide-react';
 
 const Dashboard = ({ onCreateRoomClick }) => {
-  const { joinRoom } = useRoom();
+  const { joinRoom, currentUser } = useRoom();
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [showPasswordInput, setShowPasswordInput] = useState(false);
@@ -145,26 +145,44 @@ const Dashboard = ({ onCreateRoomClick }) => {
       </div>
 
       {/* ➕ Create Room CTA (Signature Crimson Background Card) */}
-      <button
-        onClick={onCreateRoomClick}
-        className="w-full p-6 bg-gradient-to-br from-[#C00A4A] to-[#a3083e] hover:from-[#b00943] hover:to-[#910737] rounded-3xl flex flex-col items-center justify-center gap-2 shadow-lg shadow-pink-900/10 active:scale-[0.99] transition-all cursor-pointer text-white relative overflow-hidden group"
-      >
-        {/* Soft geometric design within the CTA card */}
-        <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-white/10 rounded-full blur-xl group-hover:scale-125 transition-transform duration-500"></div>
-        <div className="absolute -top-8 -left-8 w-24 h-24 bg-black/10 rounded-full blur-xl"></div>
+      {currentUser?.isGuest ? (
+        <div
+          className="w-full p-6 bg-slate-100 border border-slate-200/80 rounded-3xl flex flex-col items-center justify-center gap-2 shadow-inner text-slate-400 relative overflow-hidden select-none"
+        >
+          <div className="w-11 h-11 rounded-full bg-slate-200 flex items-center justify-center text-slate-400">
+            <ShieldAlert className="w-6 h-6" />
+          </div>
+          <div className="text-center z-10">
+            <h3 className="font-extrabold text-sm text-slate-500">
+              새로운 약속 방 개설 불가 <span className="italic font-light opacity-95 text-[11px]">(Sign-in Required)</span>
+            </h3>
+            <p className="text-[10px] text-slate-400 mt-1 font-semibold">
+              비회원은 약속 방 입장만 가능합니다. 방을 만드시려면 소셜 로그인을 해주세요.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={onCreateRoomClick}
+          className="w-full p-6 bg-gradient-to-br from-[#C00A4A] to-[#a3083e] hover:from-[#b00943] hover:to-[#910737] rounded-3xl flex flex-col items-center justify-center gap-2 shadow-lg shadow-pink-900/10 active:scale-[0.99] transition-all cursor-pointer text-white relative overflow-hidden group"
+        >
+          {/* Soft geometric design within the CTA card */}
+          <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-white/10 rounded-full blur-xl group-hover:scale-125 transition-transform duration-500"></div>
+          <div className="absolute -top-8 -left-8 w-24 h-24 bg-black/10 rounded-full blur-xl"></div>
 
-        <div className="w-11 h-11 rounded-full bg-white/20 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
-          <Plus className="w-6 h-6" />
-        </div>
-        <div className="text-center z-10">
-          <h3 className="font-extrabold text-lg text-white select-none">
-            새로운 약속 방 개설 <span className="italic font-light opacity-90 text-[13px]">(Start New Room)</span>
-          </h3>
-          <p className="text-[11px] text-pink-100/80 mt-1 select-none font-semibold">
-            가입 없이 즉시 방을 만들어 친구들을 초대하세요
-          </p>
-        </div>
-      </button>
+          <div className="w-11 h-11 rounded-full bg-white/20 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+            <Plus className="w-6 h-6" />
+          </div>
+          <div className="text-center z-10">
+            <h3 className="font-extrabold text-lg text-white select-none">
+              새로운 약속 방 개설 <span className="italic font-light opacity-90 text-[13px]">(Start New Room)</span>
+            </h3>
+            <p className="text-[11px] text-pink-100/80 mt-1 select-none font-semibold">
+              가입 없이 즉시 방을 만들어 친구들을 초대하세요
+            </p>
+          </div>
+        </button>
+      )}
 
       {/* 🕒 Recent Rooms Section */}
       {recentRooms.length > 0 && (

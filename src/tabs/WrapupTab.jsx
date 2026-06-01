@@ -61,6 +61,7 @@ const WrapupTab = () => {
   );
   const [customLocName, setCustomLocName] = useState('');
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadedImgUrl, setDownloadedImgUrl] = useState(null);
 
   const activeDayKey = selectedDayKey || DAYS[0]?.key || '';
 
@@ -94,10 +95,17 @@ const WrapupTab = () => {
       logging: false,
       useCORS: true
     }).then(canvas => {
+      const imgDataUrl = canvas.toDataURL('image/png');
+      
       const link = document.createElement('a');
       link.download = `baro_yaksok_${roomInfo.code}.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.href = imgDataUrl;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+
+      // Open fallback preview modal
+      setDownloadedImgUrl(imgDataUrl);
       setIsDownloading(false);
     }).catch(err => {
       console.error(err);
@@ -359,6 +367,54 @@ const WrapupTab = () => {
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
+
+      {/* 📥 Image Download Fallback Modal */}
+      {downloadedImgUrl && (
+        <div 
+          onClick={() => setDownloadedImgUrl(null)}
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="glass-card rounded-3xl p-5 w-full max-w-sm border border-slate-200/60 shadow-2xl relative overflow-hidden animate-fade-in-up cursor-default text-center space-y-4"
+          >
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3 select-none">
+              <h3 className="text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-[#C00A4A]" />
+                영수증 저장 완료!
+              </h3>
+              <button 
+                type="button" 
+                onClick={() => setDownloadedImgUrl(null)}
+                className="w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all cursor-pointer font-bold text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <img 
+                src={downloadedImgUrl} 
+                alt="Receipt Ticket Preview" 
+                className="w-full max-h-[300px] object-contain rounded-2xl border border-rose-100 shadow-sm"
+              />
+              <div className="bg-rose-50/50 border border-rose-100/60 rounded-xl p-3 text-left space-y-1">
+                <span className="text-[9px] font-extrabold text-[#C00A4A] tracking-wider block">💡 모바일/인앱 브라우저 안내</span>
+                <p className="text-[10px] text-slate-500 font-semibold leading-relaxed">
+                  만약 다운로드가 진행되지 않은 경우, 위의 **영수증 이미지를 길게 누르시거나** 우클릭하여 **'이미지 저장'** 또는 **'사진에 추가'**를 선택해서 저장해주세요.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setDownloadedImgUrl(null)}
+              className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

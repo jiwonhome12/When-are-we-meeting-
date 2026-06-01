@@ -32,34 +32,92 @@ const LocationTab = () => {
   const [customPlaceName, setCustomPlaceName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
+  const [selectedLatLng, setSelectedLatLng] = useState(null);
+  const [selectedAddress, setSelectedAddress] = useState('');
+  const [tempPlaceName, setTempPlaceName] = useState('');
+  const [mapLoaded, setMapLoaded] = useState(false);
+
   const mapRef = useRef(null);
   const markersRef = useRef([]);
   const infowindowsRef = useRef([]);
+  const clickMarkerRef = useRef(null);
 
-  // Initialize Kakao Maps
+  // Initialize Kakao Maps with robust polling
   useEffect(() => {
-    if (!window.kakao || !window.kakao.maps) {
-      console.warn("Kakao Maps API is not loaded yet.");
-      return;
+    let mapInstance = null;
+    let intervalId = null;
+
+    const initMap = () => {
+      if (!window.kakao || !window.kakao.maps) {
+        return false;
+      }
+
+      window.kakao.maps.load(() => {
+        const container = document.getElementById('kakao-map');
+        if (!container) return;
+
+        const options = {
+          center: new window.kakao.maps.LatLng(37.5563, 126.9273), // Default: Hongdae
+          level: 4
+        };
+        mapInstance = new window.kakao.maps.Map(container, options);
+        mapRef.current = mapInstance;
+
+        const geocoder = new window.kakao.maps.services.Geocoder();
+
+        // 핑 찍기 기능 추가: 지도 클릭 이벤트 리스너 등록
+        window.kakao.maps.event.addListener(mapInstance, 'click', (mouseEvent) => {
+          const latlng = mouseEvent.latLng;
+          setSelectedLatLng(latlng);
+
+          // 클릭한 위치에 임시 마커 표시
+          if (clickMarkerRef.current) {
+            clickMarkerRef.current.setMap(null);
+          }
+
+          // Use default Kakao Red Marker
+          const tempMarker = new window.kakao.maps.Marker({
+            position: latlng,
+            map: mapInstance
+          });
+          clickMarkerRef.current = tempMarker;
+
+          // 역지오코딩을 사용하여 좌표를 주소로 변환
+          geocoder.coord2Address(latlng.getLng(), latlng.getLat(), (result, status) => {
+            if (status === window.kakao.maps.services.Status.OK) {
+              const roadAddr = result[0].road_address ? result[0].road_address.address_name : '';
+              const lotAddr = result[0].address.address_name;
+              setSelectedAddress(roadAddr || lotAddr || '주소 정보 없음');
+            } else {
+              setSelectedAddress('주소 정보 없음');
+            }
+          });
+        });
+
+        setMapLoaded(true);
+      });
+      return true;
+    };
+
+    if (!initMap()) {
+      intervalId = setInterval(() => {
+        if (initMap()) {
+          clearInterval(intervalId);
+        }
+      }, 200);
     }
 
-    const container = document.getElementById('kakao-map');
-    if (!container) return;
-
-    const options = {
-      center: new window.kakao.maps.LatLng(37.5563, 126.9273), // Default: Hongdae
-      level: 4
-    };
-    const map = new window.kakao.maps.Map(container, options);
-    mapRef.current = map;
-
     return () => {
+      if (intervalId) clearInterval(intervalId);
       markersRef.current.forEach(m => m.setMap(null));
       markersRef.current = [];
+      if (clickMarkerRef.current) {
+        clickMarkerRef.current.setMap(null);
+      }
     };
   }, []);
 
-  // Update Markers when locations or participants change
+  // Update Markers when locations, participants or mapLoaded change
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !window.kakao || !window.kakao.maps) return;
@@ -137,7 +195,7 @@ const LocationTab = () => {
         }
       });
     });
-  }, [locations, participants]);
+  }, [locations, participants, mapLoaded]);
 
   const handleRecommend = (rec) => {
     addLocation(rec.name, rec.address, activeCategory === '🍖' ? '맛집' : activeCategory === '☕' ? '카페' : '주차장');
@@ -148,6 +206,20 @@ const LocationTab = () => {
     if (!customPlaceName.trim()) return;
     addLocation(customPlaceName.trim(), '사용자 지정 위치 정보', '기타');
     setCustomPlaceName('');
+  };
+
+  const handleAddClickedLocation = (e) => {
+    if (e) e.preventDefault();
+    if (!tempPlaceName.trim()) return;
+    addLocation(tempPlaceName.trim(), selectedAddress || '지도 선택 위치', '기타');
+    
+    // Clear temp state
+    setTempPlaceName('');
+    setSelectedLatLng(null);
+    if (clickMarkerRef.current) {
+      clickMarkerRef.current.setMap(null);
+      clickMarkerRef.current = null;
+    }
   };
 
   const getParticipantColor = (userId) => {
@@ -174,6 +246,47 @@ const LocationTab = () => {
     <div className="space-y-4 w-full flex-1 flex flex-col select-none">
       {/* 📍 Kakao Map Container */}
       <div id="kakao-map" className="relative h-48 rounded-2xl overflow-hidden border border-slate-200/60 shadow-md bg-slate-100"></div>
+
+      {/* 📍 Pinned location popup */}
+      {selectedLatLng && (
+        <div className="p-4 bg-[#C00A4A]/5 border border-[#C00A4A]/25 rounded-2xl animate-fade-in space-y-2.5 shadow-sm">
+          <div className="flex justify-between items-center select-none">
+            <span className="text-[10px] font-extrabold text-[#C00A4A] tracking-wider uppercase">📍 지도 선택 위치</span>
+            <button 
+              type="button" 
+              onClick={() => {
+                setSelectedLatLng(null);
+                if (clickMarkerRef.current) {
+                  clickMarkerRef.current.setMap(null);
+                  clickMarkerRef.current = null;
+                }
+              }}
+              className="text-[10px] text-slate-400 font-extrabold hover:text-slate-600 cursor-pointer animate-pulse"
+            >
+              취소
+            </button>
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-slate-700">{selectedAddress || '주소 정보 불러오는 중...'}</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={tempPlaceName}
+                onChange={(e) => setTempPlaceName(e.target.value)}
+                placeholder="장소의 이름을 입력해주세요 (예: 맛있는 고기집)"
+                className="flex-1 glass-input rounded-xl py-2 px-3 text-xs font-semibold placeholder:text-slate-300 text-slate-800 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleAddClickedLocation}
+                className="px-4.5 bg-[#C00A4A] hover:bg-[#a3083e] text-white font-bold rounded-xl text-xs flex items-center justify-center shadow active:scale-95 transition-all cursor-pointer"
+              >
+                후보 등록
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 🔍 Search & Categories Row */}
       <div className="space-y-2">

@@ -335,21 +335,7 @@ export const RoomProvider = ({ children }) => {
 
     setLocations(prev => {
       const next = [...prev, newLoc];
-      
-      // Add chat notification
-      const systemMsg = {
-        id: `sys_${Date.now()}`,
-        senderId: 'system',
-        senderName: '시스템',
-        text: `📍 ${currentUser.name}님이 [${name}] 장소를 추천 리스트에 등록했습니다.`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        type: 'link',
-        linkType: 'location'
-      };
-      
-      const nextMessages = [...chatMessages, systemMsg];
-      setChatMessages(nextMessages);
-      broadcastState(getFullState({ locations: next, chatMessages: nextMessages }));
+      broadcastState(getFullState({ locations: next }));
       return next;
     });
   };
@@ -400,12 +386,13 @@ export const RoomProvider = ({ children }) => {
   };
 
   // 8. 결정 도우미 룰렛 구동
-  const spinRoulette = (candidates) => {
+  const spinRoulette = (candidates, count = 1, type = 'location') => {
     if (!currentUser || candidates.length === 0) return;
     
-    // Choose random result
-    const randomIndex = Math.floor(Math.random() * candidates.length);
-    const result = candidates[randomIndex];
+    // Choose N unique random winners
+    const shuffled = [...candidates].sort(() => 0.5 - Math.random());
+    const winners = shuffled.slice(0, Math.min(count, candidates.length));
+    const result = { type, winners };
 
     setIsSpinning(true);
     
@@ -421,12 +408,13 @@ export const RoomProvider = ({ children }) => {
       setIsSpinning(false);
       setRouletteResult(result);
       
-      // Add chat result notification
+      // Add chat result notification listing all winners
+      const winnersText = winners.map(w => `[${w.name}]`).join(', ');
       const systemMsg = {
         id: `sys_${Date.now()}`,
         senderId: 'system',
         senderName: '시스템',
-        text: `🎲 룰렛 결과 [${result.name}]이(가) 최종 후보로 선택되었습니다! 🎉`,
+        text: `🎲 룰렛 결과 ${type === 'location' ? '최종 장소' : '최종 시간'} 후보로 ${winnersText}이(가) 최종 선정되었습니다! 🎉`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         type: 'link',
         linkType: 'roulette'

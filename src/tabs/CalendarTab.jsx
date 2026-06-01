@@ -269,11 +269,33 @@ const CalendarTab = ({ setActiveTab }) => {
         </div>
       )}
 
-      {/* 📅 Calendar + Timeline Two-Column Grid */}
-      <div className="flex flex-col lg:flex-row gap-4 w-full flex-1 min-h-[460px]">
+      {/* 📅 Calendar + Timeline Vertical Stack */}
+      <div className="flex flex-col gap-4 w-full flex-1">
         {/* Left Side: Monthly Calendar Card */}
         <div className="flex-1 glass-card rounded-2xl border border-slate-200/50 p-4 bg-white shadow-md flex flex-col justify-between">
           <div className="space-y-3">
+            {/* 📅 Date Range Coordination Panel */}
+            <div className="flex flex-wrap items-center gap-2 pb-2.5 mb-1 border-b border-slate-100/80 text-[11px] font-bold text-slate-500">
+              <span className="text-[10px] bg-rose-50 text-[#C00A4A] border border-rose-100 px-2 py-0.5 rounded-lg select-none">
+                조율 범위 설정
+              </span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={roomStartDate}
+                  onChange={(e) => updateDateRange(e.target.value, roomEndDate)}
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 focus:outline-none focus:border-[#C00A4A] font-bold text-slate-700 cursor-pointer"
+                />
+                <span className="text-slate-400">~</span>
+                <input
+                  type="date"
+                  value={roomEndDate}
+                  onChange={(e) => updateDateRange(roomStartDate, e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 focus:outline-none focus:border-[#C00A4A] font-bold text-slate-700 cursor-pointer"
+                />
+              </div>
+            </div>
+
             {/* Calendar Month Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -384,7 +406,7 @@ const CalendarTab = ({ setActiveTab }) => {
         </div>
 
         {/* Right Side: Timeline Selection Panel */}
-        <div className="w-full lg:w-[320px] glass-card rounded-2xl border border-slate-200/50 p-4 bg-white shadow-md flex flex-col space-y-4 justify-between">
+        <div className="w-full glass-card rounded-2xl border border-slate-200/50 p-4 bg-white shadow-md flex flex-col space-y-4 justify-between">
           
           {/* Header information for timeline */}
           <div className="flex flex-col border-b border-slate-100 pb-2.5 gap-1 shrink-0">

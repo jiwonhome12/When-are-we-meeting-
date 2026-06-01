@@ -124,8 +124,6 @@ const RouletteTab = () => {
             <option value={1}>1개 선택지 뽑기</option>
             <option value={2}>2개 선택지 뽑기</option>
             <option value={3}>3개 선택지 뽑기</option>
-            <option value={4}>4개 선택지 뽑기</option>
-            <option value={5}>5개 선택지 뽑기</option>
           </select>
         </div>
       </div>

@@ -27,9 +27,9 @@ export const RoomProvider = ({ children }) => {
 
   const broadcastChannelRef = useRef(null);
 
-  // Load user session from LocalStorage on mount
+  // Load user session from SessionStorage on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem('baro_yaksok_user');
+    const savedUser = sessionStorage.getItem('baro_yaksok_user');
     if (savedUser) {
       setCurrentUser(JSON.parse(savedUser));
     }
@@ -263,7 +263,7 @@ export const RoomProvider = ({ children }) => {
     };
 
     setCurrentUser(newUser);
-    localStorage.setItem('baro_yaksok_user', JSON.stringify(newUser));
+    sessionStorage.setItem('baro_yaksok_user', JSON.stringify(newUser));
 
     setParticipants(prev => {
       const exists = prev.some(p => p.id === userId);
@@ -546,7 +546,7 @@ export const RoomProvider = ({ children }) => {
 
   // 11. 로그아웃 및 사용자 프로필 초기화
   const logoutUser = () => {
-    localStorage.removeItem('baro_yaksok_user');
+    sessionStorage.removeItem('baro_yaksok_user');
     setCurrentUser(null);
   };
 

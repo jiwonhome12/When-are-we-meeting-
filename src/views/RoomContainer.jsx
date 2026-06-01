@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRoom } from '../context/RoomContext';
-import { Share2, LogOut, Copy, Check, Calendar, MapPin, MessageSquare, Dices, Award, Users } from 'lucide-react';
+import { Share2, LogOut, Copy, Check, Calendar, MapPin, MessageSquare, Dices, Award, Users, User, Sparkles } from 'lucide-react';
 
 // Core Tabs
 import CalendarTab from '../tabs/CalendarTab';
@@ -33,6 +33,7 @@ const RoomContainer = () => {
   const [activeTab, setActiveTab] = useState('calendar'); // calendar, location, chat, roulette, wrapup
   const [copied, setCopied] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [showMembersModal, setShowMembersModal] = useState(false);
 
   // Initialize Kakao SDK
   useEffect(() => {
@@ -94,41 +95,131 @@ const RoomContainer = () => {
     }
   }, [roomInfo?.step]);
 
-  // Auto-onboard guest immediately without prompt
-  useEffect(() => {
-    if (!currentUser) {
-      const guestNumber = participants.length + 1;
-      const randomEmoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
-      const randomColor = COLORS[Math.floor(Math.random() * COLORS.length)];
-      
-      // Delay slightly for smooth transition
-      const timer = setTimeout(() => {
-        onboardUser({
-          name: `참여자 ${guestNumber}`,
-          emoji: randomEmoji,
-          color: randomColor.name,
-          isHost: false
-        });
-      }, 800);
-      return () => clearTimeout(timer);
+  // Handle guest manual onboarding submit
+  const handleGuestOnboardSubmit = (e) => {
+    e.preventDefault();
+    if (!nickname.trim()) {
+      setOnboardError('닉네임을 입력해 주세요.');
+      return;
     }
-  }, [currentUser, participants.length, onboardUser]);
+    setOnboardError('');
+    onboardUser({
+      name: nickname.trim(),
+      emoji: selectedEmoji,
+      color: selectedColor.name,
+      isHost: false
+    });
+  };
 
-  // If user is not onboarded, show the premium auto-onboarding loader
+  // If user is not onboarded, show the premium profile entry form
   if (!currentUser) {
     return (
       <div className="min-h-screen flex flex-col justify-center items-center py-6 px-4 bg-[#f8fafc]">
-        <div className="glass-card rounded-3xl p-8 w-full max-w-sm text-center space-y-4 border border-slate-200/60 shadow-xl animate-fade-in-up">
-          <div className="w-12 h-12 rounded-full bg-[#C00A4A]/10 text-[#C00A4A] flex items-center justify-center mx-auto animate-pulse">
-            <Sparkles className="w-6 h-6" />
-          </div>
-          <div className="space-y-1.5">
-            <h3 className="font-extrabold text-slate-800 text-base">⚡ 초고속 즉시 입장 중</h3>
-            <p className="text-xs text-slate-500 font-semibold leading-relaxed">
-              번거로운 로그인이나 프로필 설정 없이<br />
-              참여자 아바타와 임시 아이디를 자동 생성하고 있습니다.
+        {/* 🌸 Gradient Orbs */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          <div className="absolute top-10 left-10 w-64 h-64 bg-rose-200/40 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute bottom-20 right-10 w-72 h-72 bg-pink-100/50 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1.5s' }}></div>
+        </div>
+
+        <div className="glass-card rounded-3xl p-6 w-full max-w-md border border-slate-200/60 shadow-xl animate-fade-in-up z-10">
+          <div className="text-center mb-6">
+            <h3 className="text-lg font-extrabold text-slate-900 flex items-center justify-center gap-1.5">
+              <Sparkles className="w-5 h-5 text-[#C00A4A]" />
+              바로약속 프로필 생성
+            </h3>
+            <p className="text-xs text-slate-500 font-semibold mt-1">
+              약속방에 참가하기 위해 사용할 닉네임과 아바타를 설정해주세요.
             </p>
           </div>
+
+          {/* Profile Avatar Preview */}
+          <div className="flex flex-col items-center justify-center mb-5">
+            <div 
+              className="w-16 h-16 rounded-full flex items-center justify-center text-3xl border-4 border-white shadow-md"
+              style={{ backgroundColor: selectedColor.hex }}
+            >
+              {selectedEmoji}
+            </div>
+            <span className="text-[10px] text-slate-400 mt-1.5 font-bold select-none">아바타 미리보기</span>
+          </div>
+
+          <form onSubmit={handleGuestOnboardSubmit} className="space-y-4">
+            <div className="space-y-1">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">
+                사용할 닉네임
+              </label>
+              <input
+                type="text"
+                value={nickname}
+                onChange={(e) => { setNickname(e.target.value); setOnboardError(''); }}
+                placeholder="닉네임 입력 (최대 10자)"
+                maxLength={10}
+                className="w-full glass-input rounded-2xl py-3 px-4 font-semibold text-slate-800 focus:outline-none transition-all text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">
+                이모지 선택
+              </label>
+              <div className="grid grid-cols-8 gap-1.5 bg-slate-50/50 p-2.5 rounded-xl border border-slate-200/40">
+                {EMOJIS.map((emoji) => (
+                  <button
+                    type="button"
+                    key={emoji}
+                    onClick={() => setSelectedEmoji(emoji)}
+                    className={`w-7.5 h-7.5 rounded-lg flex items-center justify-center text-base transition-all hover:scale-105 active:scale-95 cursor-pointer ${
+                      selectedEmoji === emoji 
+                        ? 'bg-white border-2 border-[#C00A4A] shadow-sm' 
+                        : 'hover:bg-white/50'
+                    }`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">
+                퍼스널 컬러 선택
+              </label>
+              <div className="flex flex-wrap gap-2 bg-slate-50/50 p-2.5 rounded-xl border border-slate-200/40 justify-center">
+                {COLORS.map((color) => {
+                  const isSelected = selectedColor.name === color.name;
+                  return (
+                    <button
+                      type="button"
+                      key={color.name}
+                      onClick={() => setSelectedColor(color)}
+                      className="w-6.5 h-6.5 rounded-full border-2 transition-all relative flex items-center justify-center hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
+                      style={{ 
+                        backgroundColor: color.hex,
+                        borderColor: isSelected ? '#C00A4A' : '#ffffff'
+                      }}
+                    >
+                      {isSelected && (
+                        <Check className="w-3.5 h-3.5 text-slate-800 font-extrabold" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {onboardError && (
+              <p className="text-[#C00A4A] text-[10px] font-bold text-center bg-rose-50 border border-rose-100 rounded-lg py-1 px-2">
+                ⚠️ {onboardError}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              className="w-full py-3.5 bg-[#C00A4A] hover:bg-[#a3083e] text-white text-xs font-bold rounded-2xl cursor-pointer shadow-md transition-all duration-200 active:scale-[0.98]"
+            >
+              프로필 설정 완료 및 입장하기
+            </button>
+          </form>
         </div>
       </div>
     );
@@ -148,20 +239,25 @@ const RoomContainer = () => {
   return (
     <div className="min-h-screen flex flex-col justify-between relative bg-[#f8fafc]">
       {/* 🚀 Header */}
-      <header className="glass-panel sticky top-0 z-40 px-4 py-3.5 flex items-center justify-between shadow-sm border-b border-slate-100">
-        <div className="flex items-center gap-2.5">
+      <header className="glass-panel sticky top-0 z-40 px-4 py-3 flex items-center justify-between shadow-sm border-b border-slate-100">
+        <button
+          onClick={() => setShowMembersModal(true)}
+          className="flex items-center gap-2.5 text-left cursor-pointer hover:bg-slate-50 p-1.5 rounded-xl transition-all border border-transparent hover:border-slate-200"
+          title="참여자 목록 확인"
+        >
           <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-lg select-none border border-slate-200/50">
             {roomInfo?.type?.split(' ')[0] || '📅'}
           </div>
           <div>
-            <h1 className="font-extrabold text-slate-800 text-sm leading-tight max-w-[180px] truncate select-none">
+            <h1 className="font-extrabold text-slate-800 text-sm leading-tight max-w-[180px] truncate select-none flex items-center gap-1.5">
               {roomInfo?.title}
+              <span className="text-[8px] bg-slate-200/70 text-slate-600 px-1.5 py-0.5 rounded-full font-bold select-none">멤버</span>
             </h1>
             <p className="text-[9px] font-bold font-mono text-slate-400 flex items-center gap-1 mt-0.5 select-all uppercase">
               CODE: {roomCode}
             </p>
           </div>
-        </div>
+        </button>
 
         {/* Action buttons */}
         <div className="flex items-center gap-2 relative">
@@ -300,6 +396,75 @@ const RoomContainer = () => {
             <span className="text-[10px] font-bold">마무리</span>
           </button>
         </nav>
+      )}
+
+      {/* 👥 Detailed Members Profiles Modal */}
+      {showMembersModal && (
+        <div 
+          onClick={() => setShowMembersModal(false)}
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in cursor-pointer"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="glass-card rounded-3xl p-6 w-full max-w-md border border-slate-200/60 shadow-2xl relative overflow-hidden animate-fade-in-up cursor-default"
+          >
+            <div className="absolute top-0 right-0 w-24 h-24 bg-[#C00A4A]/5 rounded-full blur-xl pointer-events-none"></div>
+            
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-1.5 select-none">
+                <Users className="w-5 h-5 text-[#C00A4A]" />
+                참여자 프로필 확인
+              </h3>
+              <button 
+                type="button"
+                onClick={() => setShowMembersModal(false)}
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-all cursor-pointer shadow-inner font-bold text-sm"
+                title="닫기"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3.5 max-h-80 overflow-y-auto pr-1">
+              {participants.map((p) => {
+                const isMe = p.id === currentUser.id;
+                return (
+                  <div 
+                    key={p.id}
+                    className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-slate-200 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-xl border border-white shadow-sm"
+                        style={{ backgroundColor: getHexColor(p.color) }}
+                      >
+                        {p.emoji}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-slate-800 flex items-center gap-1.5">
+                          {p.name}
+                          {isMe && (
+                            <span className="text-[9px] bg-slate-100 text-slate-500 border border-slate-200 px-1.5 py-0.5 rounded-full font-bold">
+                              나
+                            </span>
+                          )}
+                          {p.isHost && (
+                            <span className="text-[9px] bg-[#C00A4A] text-white px-1.5 py-0.5 rounded-full font-bold">
+                              방장
+                            </span>
+                          )}
+                        </h4>
+                        <p className="text-[10px] text-slate-400 font-semibold font-mono tracking-wider uppercase mt-0.5">
+                          Color: {p.color}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

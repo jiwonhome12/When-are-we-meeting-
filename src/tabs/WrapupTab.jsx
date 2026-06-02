@@ -53,15 +53,58 @@ const WrapupTab = () => {
 
   const receiptRef = useRef(null);
 
+  // Initialize values based on rouletteResult
+  const getInitialDayKey = () => {
+    if (rouletteResult && rouletteResult.type === 'time' && rouletteResult.winners && rouletteResult.winners.length > 0) {
+      const parts = rouletteResult.winners[0].id.split('_');
+      if (parts[0]) return parts[0];
+    }
+    return DAYS[0]?.key || '';
+  };
+
+  const getInitialHour = () => {
+    if (rouletteResult && rouletteResult.type === 'time' && rouletteResult.winners && rouletteResult.winners.length > 0) {
+      const parts = rouletteResult.winners[0].id.split('_');
+      if (parts[1]) return parts[1];
+    }
+    return HOURS[3]; // 12:00 default
+  };
+
+  const getInitialLocId = () => {
+    if (rouletteResult && rouletteResult.type === 'location' && rouletteResult.winners && rouletteResult.winners.length > 0) {
+      return rouletteResult.winners[0].id;
+    }
+    return locations.length > 0 ? locations[0].id : 'custom';
+  };
+
   // Setup form states for Host
-  const [selectedDayKey, setSelectedDayKey] = useState(DAYS[0]?.key || '');
-  const [selectedHour, setSelectedHour] = useState(HOURS[3]); // 12:00 default
-  const [selectedLocId, setSelectedLocId] = useState(
-    locations.length > 0 ? locations[0].id : 'custom'
-  );
+  const [selectedDayKey, setSelectedDayKey] = useState(getInitialDayKey);
+  const [selectedHour, setSelectedHour] = useState(getInitialHour);
+  const [selectedLocId, setSelectedLocId] = useState(getInitialLocId);
   const [customLocName, setCustomLocName] = useState('');
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadedImgUrl, setDownloadedImgUrl] = useState(null);
+
+  // Synchronize selections with rouletteResult or default lists when they load
+  React.useEffect(() => {
+    if (rouletteResult) {
+      if (rouletteResult.type === 'time' && rouletteResult.winners && rouletteResult.winners.length > 0) {
+        const parts = rouletteResult.winners[0].id.split('_');
+        if (parts[0]) setSelectedDayKey(parts[0]);
+        if (parts[1]) setSelectedHour(parts[1]);
+      }
+      if (rouletteResult.type === 'location' && rouletteResult.winners && rouletteResult.winners.length > 0) {
+        setSelectedLocId(rouletteResult.winners[0].id);
+      }
+    } else {
+      if (DAYS.length > 0 && !selectedDayKey) {
+        setSelectedDayKey(DAYS[0].key);
+      }
+      if (locations.length > 0 && !selectedLocId) {
+        setSelectedLocId(locations[0].id);
+      }
+    }
+  }, [rouletteResult, DAYS.length, locations.length]);
 
   const activeDayKey = selectedDayKey || DAYS[0]?.key || '';
 

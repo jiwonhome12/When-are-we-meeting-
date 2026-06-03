@@ -344,7 +344,7 @@ export const RoomProvider = ({ children }) => {
   };
 
   // 5. 장소 추가
-  const addLocation = (name, address = '', category = '기타') => {
+  const addLocation = (name, address = '', category = '기타', lat = null, lng = null) => {
     if (!currentUser) return;
     const newLoc = {
       id: `loc_${Date.now()}`,
@@ -352,7 +352,9 @@ export const RoomProvider = ({ children }) => {
       address: address || '추천 장소 상세 주소',
       category,
       proposedBy: currentUser.id,
-      votes: [currentUser.id] // Auto vote on proposal
+      votes: [currentUser.id], // Auto vote on proposal
+      lat,
+      lng
     };
 
     setLocations(prev => {

@@ -31,6 +31,8 @@ const LocationTab = () => {
   const [activeCategory, setActiveCategory] = useState('🍖');
   const [customPlaceName, setCustomPlaceName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   const [selectedLatLng, setSelectedLatLng] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState('');
@@ -41,6 +43,7 @@ const LocationTab = () => {
   const markersRef = useRef([]);
   const infowindowsRef = useRef([]);
   const clickMarkerRef = useRef(null);
+  const coordsCacheRef = useRef({}); // Caches geocoding results to prevent lagging
 
   // Initialize Kakao Maps with robust polling
   useEffect(() => {
@@ -138,60 +141,75 @@ const LocationTab = () => {
       return;
     }
 
-    locations.forEach((loc, index) => {
+    const createMarkerAndWindow = (loc, coords) => {
+      const marker = new window.kakao.maps.Marker({
+        map: map,
+        position: coords,
+        title: loc.name
+      });
+
+      const proposer = participants.find(p => p.id === loc.proposedBy);
+      const emoji = proposer ? proposer.emoji : '👤';
+      const name = proposer ? proposer.name : '참여자';
+
+      const iwContent = `
+        <div style="padding:6px 8px; font-family:sans-serif; font-size:10px; border-radius:10px; background:#fff; border:1px solid #cbd5e1; min-width:120px; box-shadow:0 2px 4px rgba(0,0,0,0.06); text-align:left;">
+          <div style="font-weight:bold; color:#0f172a; margin-bottom:2px;">📍 ${loc.name}</div>
+          <div style="color:#64748b; display:flex; justify-content:between; width:100%;">
+            <span>제안: ${emoji} ${name}</span>
+            <span style="color:#C00A4A; font-weight:bold; margin-left:auto;">✓ ${loc.votes.length}명</span>
+          </div>
+        </div>
+      `;
+
+      const infowindow = new window.kakao.maps.InfoWindow({
+        content: iwContent
+      });
+
+      infowindow.open(map, marker);
+
+      markersRef.current.push(marker);
+      infowindowsRef.current.push(infowindow);
+
+      bounds.extend(coords);
+      boundsCount++;
+
+      if (boundsCount === locations.length) {
+        map.setBounds(bounds);
+      }
+    };
+
+    locations.forEach((loc) => {
+      // Synchronously load marker if coordinates exist in the object
+      if (loc.lat && loc.lng) {
+        const coords = new window.kakao.maps.LatLng(loc.lat, loc.lng);
+        createMarkerAndWindow(loc, coords);
+        return;
+      }
+
       let searchQuery = loc.address;
       if (searchQuery === '사용자 지정 위치 정보' || !searchQuery) {
         searchQuery = '서울 마포구 홍대입구역';
+      }
+
+      // Synchronously load marker if cached to prevent lagging
+      if (coordsCacheRef.current[searchQuery]) {
+        createMarkerAndWindow(loc, coordsCacheRef.current[searchQuery]);
+        return;
       }
 
       geocoder.addressSearch(searchQuery, (result, status) => {
         if (status === window.kakao.maps.services.Status.OK) {
           let coords = new window.kakao.maps.LatLng(result[0].y, result[0].x);
           
-          // Apply slight random offset if it's the fallback address
           if (loc.address === '사용자 지정 위치 정보' || !loc.address) {
             const latOffset = (Math.random() - 0.5) * 0.003;
             const lngOffset = (Math.random() - 0.5) * 0.003;
             coords = new window.kakao.maps.LatLng(37.5563 + latOffset, 126.9273 + lngOffset);
           }
 
-          const marker = new window.kakao.maps.Marker({
-            map: map,
-            position: coords,
-            title: loc.name
-          });
-
-          // Proposer info
-          const proposer = participants.find(p => p.id === loc.proposedBy);
-          const emoji = proposer ? proposer.emoji : '👤';
-          const name = proposer ? proposer.name : '참여자';
-
-          const iwContent = `
-            <div style="padding:6px 8px; font-family:sans-serif; font-size:10px; border-radius:10px; background:#fff; border:1px solid #cbd5e1; min-width:120px; box-shadow:0 2px 4px rgba(0,0,0,0.06); text-align:left;">
-              <div style="font-weight:bold; color:#0f172a; margin-bottom:2px;">📍 ${loc.name}</div>
-              <div style="color:#64748b; display:flex; justify-content:between; width:100%;">
-                <span>제안: ${emoji} ${name}</span>
-                <span style="color:#C00A4A; font-weight:bold; margin-left:auto;">✓ ${loc.votes.length}명</span>
-              </div>
-            </div>
-          `;
-
-          const infowindow = new window.kakao.maps.InfoWindow({
-            content: iwContent
-          });
-
-          infowindow.open(map, marker);
-
-          markersRef.current.push(marker);
-          infowindowsRef.current.push(infowindow);
-
-          bounds.extend(coords);
-          boundsCount++;
-
-          // Adjust bounds if we processed all geocodes
-          if (boundsCount === locations.length) {
-            map.setBounds(bounds);
-          }
+          coordsCacheRef.current[searchQuery] = coords; // Save to cache
+          createMarkerAndWindow(loc, coords);
         }
       });
     });
@@ -273,6 +291,54 @@ const LocationTab = () => {
     });
   };
 
+  const handleSearch = (e) => {
+    if (e) e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
+      alert("지도 라이브러리가 아직 완전히 로드되지 않았습니다.");
+      return;
+    }
+
+    setIsSearching(true);
+    const ps = new window.kakao.maps.services.Places();
+    ps.keywordSearch(searchQuery.trim(), (data, status) => {
+      setIsSearching(false);
+      if (status === window.kakao.maps.services.Status.OK) {
+        setSearchResults(data); // List of actual Kakao place result objects
+      } else if (status === window.kakao.maps.services.Status.ZERO_RESULT) {
+        alert("검색 결과가 존재하지 않습니다.");
+        setSearchResults([]);
+      } else {
+        alert("검색 중 오류가 발생했습니다.");
+        setSearchResults([]);
+      }
+    });
+  };
+
+  const handleSelectSearchResult = (place) => {
+    const latlng = new window.kakao.maps.LatLng(place.y, place.x);
+    const map = mapRef.current;
+    if (map) {
+      map.setCenter(latlng);
+      map.setLevel(3);
+
+      setSelectedLatLng(latlng);
+      setSelectedAddress(place.road_address_name || place.address_name || '주소 정보 없음');
+      setTempPlaceName(place.place_name);
+
+      if (clickMarkerRef.current) {
+        clickMarkerRef.current.setMap(null);
+      }
+
+      const tempMarker = new window.kakao.maps.Marker({
+        position: latlng,
+        map: map
+      });
+      clickMarkerRef.current = tempMarker;
+    }
+  };
+
   const handleRecommend = (rec) => {
     addLocation(rec.name, rec.address, activeCategory === '🍖' ? '맛집' : activeCategory === '☕' ? '카페' : '주차장');
   };
@@ -287,7 +353,13 @@ const LocationTab = () => {
   const handleAddClickedLocation = (e) => {
     if (e) e.preventDefault();
     if (!tempPlaceName.trim()) return;
-    addLocation(tempPlaceName.trim(), selectedAddress || '지도 선택 위치', '기타');
+    addLocation(
+      tempPlaceName.trim(), 
+      selectedAddress || '지도 선택 위치', 
+      '기타', 
+      selectedLatLng ? selectedLatLng.getLat() : null, 
+      selectedLatLng ? selectedLatLng.getLng() : null
+    );
     
     // Clear temp state
     setTempPlaceName('');
@@ -414,69 +486,142 @@ const LocationTab = () => {
           </button>
         </div>
 
-        {/* Search input */}
-        <div className="relative">
-          <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="상점명 또는 주소 검색..."
-            className="w-full glass-input rounded-2xl py-2.5 pl-10 pr-4 text-xs font-semibold placeholder:text-slate-300 focus:border-[#C00A4A] transition-all text-slate-800"
-          />
-        </div>
+        {/* Search input wrapped in form */}
+        <form onSubmit={handleSearch} className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                if (!e.target.value.trim()) {
+                  setSearchResults([]); // Reset search results if input is cleared
+                }
+              }}
+              placeholder="학교, 상점명, 주소 검색 (예: 서울대학교, 홍대스타벅스)..."
+              className="w-full glass-input rounded-2xl py-2.5 pl-10 pr-4 text-xs font-semibold placeholder:text-slate-300 focus:border-[#C00A4A] transition-all text-slate-800"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={isSearching}
+            className="px-4.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-2xl text-xs flex items-center justify-center shadow active:scale-95 transition-all cursor-pointer shrink-0"
+          >
+            {isSearching ? '검색중..' : '검색'}
+          </button>
+        </form>
       </div>
 
-      {/* 🧭 Local Recommendation Slider */}
+      {/* 🧭 Local Recommendation / Search Results Slider */}
       <div className="space-y-1.5">
         <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">
-          💡 주변 {activeCategory === '🍖' ? '맛집' : activeCategory === '☕' ? '카페' : '주차장'} 추천 (추가 시 투표 자동 적용)
+          {searchResults.length > 0 
+            ? `🔍 키워드 검색 결과 (${searchResults.length}개 - 카드 터치시 해당 위치로 지도 이동)` 
+            : `💡 주변 ${activeCategory === '🍖' ? '맛집' : activeCategory === '☕' ? '카페' : '주차장'} 추천 (추가 시 투표 자동 적용)`
+          }
         </h4>
+        
         <div className="flex gap-3 overflow-x-auto py-1.5 scroll-smooth max-w-full">
-          {filteredRecs.map((rec, idx) => {
-            const alreadyAdded = locations.some(loc => loc.name === rec.name);
-            return (
-              <div 
-                key={idx}
-                className="glass-card rounded-2xl p-3.5 border border-slate-200/60 min-w-[200px] flex flex-col justify-between space-y-3 bg-white shadow-md"
-              >
-                <div>
-                  <div className="flex items-start justify-between">
-                    <h5 className="font-extrabold text-xs text-slate-800 truncate max-w-[130px]">{rec.name}</h5>
-                    <span className="flex items-center gap-0.5 text-[10px] text-yellow-500 font-bold shrink-0">
-                      <Star className="w-3 h-3 fill-yellow-500" />
-                      {rec.rating}
-                    </span>
+          {searchResults.length > 0 ? (
+            searchResults.map((rec) => {
+              const alreadyAdded = locations.some(loc => loc.name === rec.place_name);
+              return (
+                <div 
+                  key={rec.id}
+                  onClick={() => handleSelectSearchResult(rec)}
+                  className="glass-card rounded-2xl p-3.5 border border-slate-200/60 min-w-[210px] flex flex-col justify-between space-y-3 bg-white shadow-md cursor-pointer hover:border-[#C00A4A]/50 transition-all"
+                >
+                  <div>
+                    <div className="flex items-start justify-between">
+                      <h5 className="font-extrabold text-xs text-slate-800 truncate max-w-[140px]" title={rec.place_name}>
+                        {rec.place_name}
+                      </h5>
+                      <span className="text-[7.5px] bg-slate-100 text-slate-400 px-1 py-0.5 rounded font-extrabold shrink-0">
+                        {rec.category_group_name || '장소'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 truncate mt-1" title={rec.road_address_name || rec.address_name}>
+                      {rec.road_address_name || rec.address_name}
+                    </p>
                   </div>
-                  <p className="text-[10px] text-slate-400 truncate mt-1">{rec.address}</p>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[8.5px] font-extrabold text-[#C00A4A] bg-[#C00A4A]/5 px-2 py-0.5 rounded-lg border border-[#C00A4A]/10">
+                      📍 지도보기
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!alreadyAdded) {
+                          addLocation(
+                            rec.place_name, 
+                            rec.road_address_name || rec.address_name, 
+                            '검색지', 
+                            parseFloat(rec.y), 
+                            parseFloat(rec.x)
+                          );
+                        }
+                      }}
+                      disabled={alreadyAdded}
+                      className={`px-3 py-1.5 rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                        alreadyAdded 
+                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                          : 'bg-[#C00A4A] hover:bg-[#9e083d] text-white shadow-sm shadow-pink-900/10'
+                      }`}
+                    >
+                      {alreadyAdded ? 'Added' : '추가'}
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[9px] font-bold text-[#C00A4A] bg-[#C00A4A]/5 px-2 py-0.5 rounded-lg border border-[#C00A4A]/10">
-                    📍 {rec.distance}
-                  </span>
-                  <button
-                    onClick={() => !alreadyAdded && handleRecommend(rec)}
-                    disabled={alreadyAdded}
-                    className={`px-3 py-1.5 rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                      alreadyAdded 
-                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-                        : 'bg-[#C00A4A] hover:bg-[#9e083d] text-white shadow-sm shadow-pink-900/10'
-                    }`}
-                  >
-                    {alreadyAdded ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" /> Added
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-3.5 h-3.5" /> 추천
-                      </>
-                    )}
-                  </button>
+              );
+            })
+          ) : (
+            filteredRecs.map((rec, idx) => {
+              const alreadyAdded = locations.some(loc => loc.name === rec.name);
+              return (
+                <div 
+                  key={idx}
+                  className="glass-card rounded-2xl p-3.5 border border-slate-200/60 min-w-[200px] flex flex-col justify-between space-y-3 bg-white shadow-md"
+                >
+                  <div>
+                    <div className="flex items-start justify-between">
+                      <h5 className="font-extrabold text-xs text-slate-800 truncate max-w-[130px]">{rec.name}</h5>
+                      <span className="flex items-center gap-0.5 text-[10px] text-yellow-500 font-bold shrink-0">
+                        <Star className="w-3 h-3 fill-yellow-500" />
+                        {rec.rating}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 truncate mt-1">{rec.address}</p>
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[9px] font-bold text-[#C00A4A] bg-[#C00A4A]/5 px-2 py-0.5 rounded-lg border border-[#C00A4A]/10">
+                      📍 {rec.distance}
+                    </span>
+                    <button
+                      onClick={() => !alreadyAdded && handleRecommend(rec)}
+                      disabled={alreadyAdded}
+                      className={`px-3 py-1.5 rounded-xl text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                        alreadyAdded 
+                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                          : 'bg-[#C00A4A] hover:bg-[#9e083d] text-white shadow-sm shadow-pink-900/10'
+                      }`}
+                    >
+                      {alreadyAdded ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" /> Added
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-3.5 h-3.5" /> 추천
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
 

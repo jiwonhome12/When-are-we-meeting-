@@ -37,6 +37,8 @@ const LocationTab = () => {
   const [selectedLatLng, setSelectedLatLng] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState('');
   const [tempPlaceName, setTempPlaceName] = useState('');
+  const [tempComment, setTempComment] = useState('');
+  const [tempCategory, setTempCategory] = useState('기타');
   const [mapLoaded, setMapLoaded] = useState(false);
 
   const mapRef = useRef(null);
@@ -72,6 +74,8 @@ const LocationTab = () => {
         window.kakao.maps.event.addListener(mapInstance, 'click', (mouseEvent) => {
           const latlng = mouseEvent.latLng;
           setSelectedLatLng(latlng);
+          setTempComment(''); // Reset comment on new map click
+          setTempCategory('기타');
 
           // 클릭한 위치에 임시 마커 표시
           if (clickMarkerRef.current) {
@@ -233,6 +237,8 @@ const LocationTab = () => {
           map.setLevel(3);
           
           setSelectedLatLng(latlng);
+          setTempComment(''); // Reset comment on new geolocation pin
+          setTempCategory('기타');
           if (clickMarkerRef.current) {
             clickMarkerRef.current.setMap(null);
           }
@@ -326,6 +332,8 @@ const LocationTab = () => {
       setSelectedLatLng(latlng);
       setSelectedAddress(place.road_address_name || place.address_name || '주소 정보 없음');
       setTempPlaceName(place.place_name);
+      setTempComment(''); // Reset comment on new search select
+      setTempCategory('검색지');
 
       if (clickMarkerRef.current) {
         clickMarkerRef.current.setMap(null);
@@ -340,7 +348,41 @@ const LocationTab = () => {
   };
 
   const handleRecommend = (rec) => {
-    addLocation(rec.name, rec.address, activeCategory === '🍖' ? '맛집' : activeCategory === '☕' ? '카페' : '주차장');
+    if (!window.kakao || !window.kakao.maps) return;
+    const geocoder = new window.kakao.maps.services.Geocoder();
+    geocoder.addressSearch(rec.address, (result, status) => {
+      if (status === window.kakao.maps.services.Status.OK) {
+        const latlng = new window.kakao.maps.LatLng(result[0].y, result[0].x);
+        const map = mapRef.current;
+        if (map) {
+          map.setCenter(latlng);
+          map.setLevel(3);
+          
+          setSelectedLatLng(latlng);
+          setSelectedAddress(rec.address);
+          setTempPlaceName(rec.name);
+          setTempComment('');
+          setTempCategory(activeCategory === '🍖' ? '맛집' : activeCategory === '☕' ? '카페' : '주차장');
+
+          if (clickMarkerRef.current) {
+            clickMarkerRef.current.setMap(null);
+          }
+
+          const tempMarker = new window.kakao.maps.Marker({
+            position: latlng,
+            map: map
+          });
+          clickMarkerRef.current = tempMarker;
+        }
+      } else {
+        // Fallback
+        setSelectedLatLng(new window.kakao.maps.LatLng(37.5563, 126.9273));
+        setSelectedAddress(rec.address);
+        setTempPlaceName(rec.name);
+        setTempComment('');
+        setTempCategory(activeCategory === '🍖' ? '맛집' : activeCategory === '☕' ? '카페' : '주차장');
+      }
+    });
   };
 
   const handleAddCustom = (e) => {
@@ -356,13 +398,15 @@ const LocationTab = () => {
     addLocation(
       tempPlaceName.trim(), 
       selectedAddress || '지도 선택 위치', 
-      '기타', 
+      tempCategory, 
       selectedLatLng ? selectedLatLng.getLat() : null, 
-      selectedLatLng ? selectedLatLng.getLng() : null
+      selectedLatLng ? selectedLatLng.getLng() : null,
+      tempComment.trim() // Save comment
     );
     
     // Clear temp state
     setTempPlaceName('');
+    setTempComment('');
     setSelectedLatLng(null);
     if (clickMarkerRef.current) {
       clickMarkerRef.current.setMap(null);
@@ -423,21 +467,30 @@ const LocationTab = () => {
           </div>
           <div className="space-y-2">
             <p className="text-xs font-bold text-slate-700">{selectedAddress || '주소 정보 불러오는 중...'}</p>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2">
               <input
                 type="text"
                 value={tempPlaceName}
                 onChange={(e) => setTempPlaceName(e.target.value)}
                 placeholder="장소의 이름을 입력해주세요 (예: 맛있는 고기집)"
-                className="flex-1 glass-input rounded-xl py-2 px-3 text-xs font-semibold placeholder:text-slate-300 text-slate-800 focus:outline-none"
+                className="w-full glass-input rounded-xl py-2 px-3 text-xs font-semibold placeholder:text-slate-300 text-slate-800 focus:outline-none"
               />
-              <button
-                type="button"
-                onClick={handleAddClickedLocation}
-                className="px-4.5 bg-[#C00A4A] hover:bg-[#a3083e] text-white font-bold rounded-xl text-xs flex items-center justify-center shadow active:scale-95 transition-all cursor-pointer"
-              >
-                후보 등록
-              </button>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={tempComment}
+                  onChange={(e) => setTempComment(e.target.value)}
+                  placeholder="상세 메모/코멘트 입력 (선택, 예: 여기 101호에서!)"
+                  className="flex-1 glass-input rounded-xl py-2 px-3 text-xs font-semibold placeholder:text-slate-300 text-slate-800 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddClickedLocation}
+                  className="px-4.5 bg-[#C00A4A] hover:bg-[#a3083e] text-white font-bold rounded-xl text-xs flex items-center justify-center shadow active:scale-95 transition-all cursor-pointer shrink-0"
+                >
+                  후보 등록
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -554,13 +607,7 @@ const LocationTab = () => {
                       onClick={(e) => {
                         e.stopPropagation();
                         if (!alreadyAdded) {
-                          addLocation(
-                            rec.place_name, 
-                            rec.road_address_name || rec.address_name, 
-                            '검색지', 
-                            parseFloat(rec.y), 
-                            parseFloat(rec.x)
-                          );
+                          handleSelectSearchResult(rec);
                         }
                       }}
                       disabled={alreadyAdded}
@@ -662,6 +709,11 @@ const LocationTab = () => {
                       <span>•</span>
                       <span className="truncate max-w-[150px] font-medium">{loc.address}</span>
                     </div>
+                    {loc.comment && (
+                      <p className="text-[9.5px] font-bold text-rose-600 bg-rose-50/70 border border-rose-100/50 px-2.5 py-0.5 rounded-lg w-fit mt-1 select-text">
+                        💬 {loc.comment}
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-3 shrink-0">

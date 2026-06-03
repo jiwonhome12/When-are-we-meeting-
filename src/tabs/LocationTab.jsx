@@ -197,6 +197,82 @@ const LocationTab = () => {
     });
   }, [locations, participants, mapLoaded]);
 
+  const handleMyLocation = () => {
+    if (!navigator.geolocation) {
+      alert("GPS 기능을 지원하지 않는 브라우저입니다.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const latlng = new window.kakao.maps.LatLng(lat, lng);
+        
+        const map = mapRef.current;
+        if (map && window.kakao && window.kakao.maps) {
+          map.setCenter(latlng);
+          map.setLevel(3);
+          
+          setSelectedLatLng(latlng);
+          if (clickMarkerRef.current) {
+            clickMarkerRef.current.setMap(null);
+          }
+          
+          const tempMarker = new window.kakao.maps.Marker({
+            position: latlng,
+            map: map
+          });
+          clickMarkerRef.current = tempMarker;
+          
+          const geocoder = new window.kakao.maps.services.Geocoder();
+          geocoder.coord2Address(lng, lat, (result, status) => {
+            if (status === window.kakao.maps.services.Status.OK) {
+              const roadAddr = result[0].road_address ? result[0].road_address.address_name : '';
+              const lotAddr = result[0].address.address_name;
+              setSelectedAddress(roadAddr || lotAddr || '내 현위치');
+            } else {
+              setSelectedAddress('내 현위치');
+            }
+          });
+        }
+      },
+      (err) => {
+        console.error("Geolocation error:", err);
+        alert("현위치를 불러올 수 없습니다. 위치 권한 허용 상태를 확인해 주세요.");
+      },
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
+  };
+
+  const handleRecenterBounds = () => {
+    const map = mapRef.current;
+    if (!map || locations.length === 0 || !window.kakao || !window.kakao.maps) return;
+
+    const geocoder = new window.kakao.maps.services.Geocoder();
+    const bounds = new window.kakao.maps.LatLngBounds();
+    let boundsCount = 0;
+
+    locations.forEach((loc) => {
+      let searchQuery = loc.address;
+      if (searchQuery === '사용자 지정 위치 정보' || !searchQuery) {
+        searchQuery = '서울 마포구 홍대입구역';
+      }
+
+      geocoder.addressSearch(searchQuery, (result, status) => {
+        if (status === window.kakao.maps.services.Status.OK) {
+          const coords = new window.kakao.maps.LatLng(result[0].y, result[0].x);
+          bounds.extend(coords);
+          boundsCount++;
+
+          if (boundsCount === locations.length) {
+            map.setBounds(bounds);
+          }
+        }
+      });
+    });
+  };
+
   const handleRecommend = (rec) => {
     addLocation(rec.name, rec.address, activeCategory === '🍖' ? '맛집' : activeCategory === '☕' ? '카페' : '주차장');
   };
@@ -247,6 +323,13 @@ const LocationTab = () => {
       {/* 📍 Kakao Map Container */}
       <div id="kakao-map" className="relative h-48 rounded-2xl overflow-hidden border border-slate-200/60 shadow-md bg-slate-100"></div>
 
+      {/* 💡 Map Pinning Tip Tooltip */}
+      <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-2.5 text-left">
+        <p className="text-[10px] text-slate-500 font-semibold leading-relaxed">
+          💡 **팁**: 지도 위를 마우스나 손가락으로 **직접 클릭**하면 원하는 위치에 빨간색 핀(핑)을 꽂아 새로운 후보지로 손쉽게 등록할 수 있습니다.
+        </p>
+      </div>
+
       {/* 📍 Pinned location popup */}
       {selectedLatLng && (
         <div className="p-4 bg-[#C00A4A]/5 border border-[#C00A4A]/25 rounded-2xl animate-fade-in space-y-2.5 shadow-sm">
@@ -290,9 +373,9 @@ const LocationTab = () => {
 
       {/* 🔍 Search & Categories Row */}
       <div className="space-y-2">
-        <div className="flex gap-2">
+        <div className="flex gap-1.5 flex-wrap">
           {/* Quick Category Tabs */}
-          <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200/50 flex-1">
+          <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200/50 flex-1 min-w-[150px]">
             {['🍖', '☕', '🚗'].map((cat) => (
               <button
                 key={cat}
@@ -308,9 +391,26 @@ const LocationTab = () => {
             ))}
           </div>
 
-          {/* Refresh/Recenter */}
-          <button className="px-3 rounded-2xl bg-slate-100 border border-slate-200/60 hover:bg-slate-200/30 text-slate-400 flex items-center justify-center cursor-pointer shadow-sm">
-            <RefreshCw className="w-4 h-4" />
+          {/* 현위치 버튼 */}
+          <button
+            type="button"
+            onClick={handleMyLocation}
+            className="px-3 py-2 rounded-2xl bg-rose-50 border border-rose-100/60 hover:bg-rose-100 text-[#C00A4A] flex items-center justify-center cursor-pointer shadow-sm gap-1 text-[10px] font-extrabold shrink-0"
+            title="현재 내 GPS 위치로 지도 이동 및 핑 고정"
+          >
+            <Navigation className="w-3.5 h-3.5 fill-[#C00A4A]" />
+            현위치
+          </button>
+
+          {/* 전체보기 버튼 */}
+          <button
+            type="button"
+            onClick={handleRecenterBounds}
+            className="px-3 py-2 rounded-2xl bg-slate-50 border border-slate-200/60 hover:bg-slate-100 text-slate-500 flex items-center justify-center cursor-pointer shadow-sm gap-1 text-[10px] font-extrabold shrink-0"
+            title="모든 후보지가 다 보이게 지도 화면 재정렬"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            전체보기
           </button>
         </div>
 

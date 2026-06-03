@@ -14,7 +14,21 @@ const ChatTab = ({ setActiveTab }) => {
 
   const [inputText, setInputText] = useState('');
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showBombDialog, setShowBombDialog] = useState(false);
   const chatBottomRef = useRef(null);
+
+  const BOMB_TEMPLATES = [
+    "📢 어이, 눈팅하지 말고 얼른 투표해라냥! 💣",
+    "⏰ 약속 시간/장소 투표 마감 임박!! 대답 좀!! ⏳",
+    "🔥 대답 안 하면 꿀밤 한 대 투하! 💥",
+    "🚨 야! 언제 만날지 빨리 고르라고! 😡",
+    "💣 폭탄 배달 완료! (빨리 의견 내라냥🐾)"
+  ];
+
+  const handleSendBomb = (text) => {
+    sendChatMessage(text, 'bomb');
+    setShowBombDialog(false);
+  };
 
   const roomStartDate = roomInfo?.startDate || new Date().toISOString().split('T')[0];
   const roomEndDate = roomInfo?.endDate || (() => {
@@ -81,6 +95,18 @@ const ChatTab = ({ setActiveTab }) => {
 
   // Helper to render special deep links
   const renderMessageContent = (msg) => {
+    if (msg.type === 'bomb') {
+      return (
+        <div className="flex items-start gap-2 py-0.5">
+          <span className="text-base shrink-0 animate-bounce">💣</span>
+          <div className="flex flex-col text-left">
+            <span className="text-[9px] uppercase tracking-wider text-red-500 font-extrabold mb-0.5">🚨 독촉 폭탄 투하!</span>
+            <span className="break-all whitespace-pre-wrap leading-relaxed">{msg.text}</span>
+          </div>
+        </div>
+      );
+    }
+
     if (msg.type === 'link') {
       const getLinkDetails = () => {
         switch (msg.linkType) {
@@ -217,10 +243,14 @@ const ChatTab = ({ setActiveTab }) => {
                   
                   <div className={`p-3 rounded-2xl text-xs relative ${
                     isMine
-                      ? 'bg-[#C00A4A] text-white rounded-tr-none shadow-md shadow-pink-900/10'
+                      ? msg.type === 'bomb'
+                        ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white rounded-tr-none shadow-lg shadow-red-900/20 font-bold border border-red-400'
+                        : 'bg-[#C00A4A] text-white rounded-tr-none shadow-md shadow-pink-900/10'
                       : msg.type === 'link'
                         ? 'bg-white border border-slate-200/80 text-slate-800 rounded-tl-none w-full shadow-sm'
-                        : 'bg-white border border-slate-200/60 text-slate-800 rounded-tl-none shadow-sm'
+                        : msg.type === 'bomb'
+                          ? 'bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 text-slate-800 rounded-tl-none shadow-md font-bold'
+                          : 'bg-white border border-slate-200/60 text-slate-800 rounded-tl-none shadow-sm'
                   }`}>
                     {renderMessageContent(msg)}
                   </div>
@@ -299,14 +329,59 @@ const ChatTab = ({ setActiveTab }) => {
           </div>
         )}
 
+        {/* 👑 Bomb Nudge Dialog Popover above input */}
+        {showBombDialog && (
+          <div className="absolute bottom-[52px] left-0 right-0 bg-white border border-slate-200 rounded-2xl shadow-xl p-3.5 z-50 animate-fade-in-up flex flex-col gap-2.5 max-h-56 overflow-y-auto">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest select-none flex items-center gap-1">
+                💣 독촉 폭탄 투하 준비 (나만 살 수 없다!)
+              </span>
+              <button 
+                type="button"
+                onClick={() => setShowBombDialog(false)}
+                className="text-[10px] font-bold text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                닫기
+              </button>
+            </div>
+
+            <div className="text-[9px] text-slate-400 font-medium mb-1 select-none">
+              아래 폭탄 중 하나를 선택하면 채팅방 전체 화면이 흔들리며 강하게 알림이 갑니다!
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              {BOMB_TEMPLATES.map((tmpl, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSendBomb(tmpl)}
+                  className="w-full text-left p-2.5 bg-red-50/50 hover:bg-red-50 border border-red-100/50 hover:border-red-200 text-slate-700 hover:text-red-700 text-[10px] font-bold rounded-xl cursor-pointer transition-all active:scale-[0.99] flex items-center gap-2"
+                >
+                  <span className="text-xs">💣</span>
+                  <span className="truncate">{tmpl}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSend} className="flex gap-2 w-full relative">
           <button
             type="button"
-            onClick={() => setShowShareDialog(!showShareDialog)}
-            className="w-11.5 h-11.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 flex items-center justify-center shrink-0 border border-slate-200/60 transition-all cursor-pointer shadow-sm active:scale-95"
+            onClick={() => { setShowShareDialog(!showShareDialog); setShowBombDialog(false); }}
+            className="w-11.5 h-11.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 flex items-center justify-center shrink-0 border border-slate-200/60 transition-all cursor-pointer shadow-sm active:scale-95 text-lg font-bold"
             title="일정/장소 공유 대화상자"
           >
-            <span className="text-xl font-extrabold text-slate-400 hover:text-[#C00A4A]">+</span>
+            +
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setShowBombDialog(!showBombDialog); setShowShareDialog(false); }}
+            className="w-11.5 h-11.5 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-300 text-red-600 flex items-center justify-center shrink-0 transition-all cursor-pointer shadow-sm active:scale-95 text-lg"
+            title="약속 독촉 폭탄 던지기"
+          >
+            💣
           </button>
           
           <div className="flex-1 relative">

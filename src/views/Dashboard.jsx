@@ -20,26 +20,29 @@ const Dashboard = ({ onCreateRoomClick }) => {
     }
   }, []);
 
-  // Format code to auto-insert dashes (e.g., SKY-LARK-22)
+  // Format code to auto-insert dashes (e.g., ABCD-EFGH-12)
   const handleCodeChange = (e) => {
     let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
     
-    // Automatically insert dashes: AAA-BBBB-11
-    if (value.length > 3 && value.length <= 7) {
-      value = `${value.slice(0, 3)}-${value.slice(3)}`;
-    } else if (value.length > 7) {
-      value = `${value.slice(0, 3)}-${value.slice(3, 7)}-${value.slice(7, 9)}`;
+    // Automatically insert dashes: XXXX-XXXX-XX (4-4-2)
+    if (value.length > 4 && value.length <= 8) {
+      value = `${value.slice(0, 4)}-${value.slice(4)}`;
+    } else if (value.length > 8) {
+      value = `${value.slice(0, 4)}-${value.slice(4, 8)}-${value.slice(8, 10)}`;
     }
     
-    setCode(value.slice(0, 11)); // Keep length capped at 11 chars
+    setCode(value.slice(0, 12)); // Keep length capped at 12 chars
     setError('');
 
     // Pre-check if password is required for this room
-    if (value.length === 11) {
+    if (value.length === 12) {
       const savedDb = localStorage.getItem(`room_db_${value}`);
       if (savedDb) {
         const db = JSON.parse(savedDb);
-        if (db.roomInfo.isPrivate) {
+        const activeRooms = JSON.parse(localStorage.getItem('baro_yaksok_active_rooms') || '[]');
+        const alreadyJoined = activeRooms.some(r => r.code === value);
+        
+        if (db.roomInfo.isPrivate && !alreadyJoined) {
           setShowPasswordInput(true);
         } else {
           setShowPasswordInput(false);
@@ -53,8 +56,8 @@ const Dashboard = ({ onCreateRoomClick }) => {
 
   const handleJoin = (e) => {
     e.preventDefault();
-    if (!code || code.length < 11) {
-      setError('올바른 11자리 코드를 입력해주세요. (예: SKY-LARK-22)');
+    if (!code || code.length < 12) {
+      setError('올바른 12자리 코드를 입력해주세요. (예: ABCD-EFGH-12)');
       return;
     }
 
@@ -68,18 +71,10 @@ const Dashboard = ({ onCreateRoomClick }) => {
   const handleRecentClick = (room) => {
     const savedDb = localStorage.getItem(`room_db_${room.code}`);
     if (savedDb) {
-      const db = JSON.parse(savedDb);
-      if (db.roomInfo.isPrivate) {
-        // Auto fill code and request password
-        setCode(room.code);
-        setShowPasswordInput(true);
-        setError('비밀번호를 입력 후 참여 버튼을 눌러주세요.');
-      } else {
-        try {
-          joinRoom(room.code);
-        } catch (err) {
-          setError(err.message);
-        }
+      try {
+        joinRoom(room.code);
+      } catch (err) {
+        setError(err.message);
       }
     } else {
       setError('로컬 데이터베이스에서 해당 방을 찾을 수 없습니다.');
@@ -100,14 +95,14 @@ const Dashboard = ({ onCreateRoomClick }) => {
         <form onSubmit={handleJoin} className="space-y-4">
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-              11자리 고유 참여 코드
+              12자리 고유 참여 코드
             </label>
             <input
               type="text"
               value={code}
               onChange={handleCodeChange}
-              placeholder="SKY-LARK-22"
-              maxLength={11}
+              placeholder="ABCD-EFGH-12"
+              maxLength={12}
               className="w-full glass-input rounded-2xl py-3.5 px-4 text-center text-xl font-extrabold tracking-widest placeholder:text-slate-300 transition-all text-slate-800"
             />
           </div>

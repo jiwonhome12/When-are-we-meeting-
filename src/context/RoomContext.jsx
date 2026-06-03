@@ -224,11 +224,34 @@ export const RoomProvider = ({ children }) => {
   // 2. 방 참여 (Guest/Host code entry)
   const joinRoom = (code, enteredPassword = '') => {
     const savedDb = localStorage.getItem(`room_db_${code}`);
+    
     if (!savedDb) {
-      throw new Error('존재하지 않는 약속 참여 코드입니다.');
+      // If the room database is not in LocalStorage (e.g., guest joining via code input),
+      // initialize roomCode and placeholder roomInfo to trigger BroadcastChannel sync.
+      const placeholderInfo = {
+        code,
+        title: '약속방 연결 중...',
+        type: '☕ 모임',
+        step: 'active',
+        createdAt: new Date().toISOString()
+      };
+      
+      setRoomCode(code);
+      setRoomInfo(placeholderInfo);
+      setParticipants([]);
+      setCalendarVotes({});
+      setLocations([]);
+      setChatMessages([]);
+      setRouletteResult(null);
+      
+      return placeholderInfo;
     }
+
     const db = JSON.parse(savedDb);
-    if (db.roomInfo.isPrivate && db.roomInfo.password !== enteredPassword) {
+    const activeRooms = JSON.parse(localStorage.getItem('baro_yaksok_active_rooms') || '[]');
+    const alreadyJoined = activeRooms.some(r => r.code === code);
+
+    if (db.roomInfo.isPrivate && !alreadyJoined && db.roomInfo.password !== enteredPassword) {
       throw new Error('비밀번호가 일치하지 않습니다.');
     }
 
@@ -241,8 +264,7 @@ export const RoomProvider = ({ children }) => {
     setRouletteResult(db.rouletteResult || null);
 
     // Add to user's recent rooms
-    const activeRooms = JSON.parse(localStorage.getItem('baro_yaksok_active_rooms') || '[]');
-    if (!activeRooms.some(r => r.code === code)) {
+    if (!alreadyJoined) {
       activeRooms.push({ code, title: db.roomInfo.title, type: db.roomInfo.type, createdAt: db.roomInfo.createdAt });
       localStorage.setItem('baro_yaksok_active_rooms', JSON.stringify(activeRooms));
     }
@@ -460,6 +482,31 @@ export const RoomProvider = ({ children }) => {
     broadcastState(getFullState({ roomInfo: nextRoomInfo, chatMessages: nextMessages }));
   };
 
+  // 9.1. 약속 마감 해제 및 다시 편집 시작 (돌아가기 기능)
+  const reopenRoom = () => {
+    if (!currentUser) return;
+    const nextRoomInfo = {
+      ...roomInfo,
+      step: 'active',
+      finalYaksok: null
+    };
+
+    setRoomInfo(nextRoomInfo);
+
+    const systemMsg = {
+      id: `sys_${Date.now()}`,
+      senderId: 'system',
+      senderName: '시스템',
+      text: `🔄 방장이 약속 마감을 취소하고 조율을 다시 개시했습니다. 이제 시간과 장소를 변경할 수 있습니다.`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      type: 'system'
+    };
+
+    const nextMessages = [...chatMessages, systemMsg];
+    setChatMessages(nextMessages);
+    broadcastState(getFullState({ roomInfo: nextRoomInfo, chatMessages: nextMessages }));
+  };
+
   // 9.5. 조율 시작일 및 종료일 업데이트 (Date Range Picker 연동)
   const updateDateRange = (newStartDate, newEndDate) => {
     if (!currentUser || !roomCode || !roomInfo) return;
@@ -559,6 +606,7 @@ export const RoomProvider = ({ children }) => {
       sendChatMessage,
       spinRoulette,
       finalizeYaksok,
+      reopenRoom,
       leaveRoom,
       logoutUser,
       updateStartDate,

@@ -27,13 +27,30 @@ const RoomContainer = () => {
     participants, 
     currentUser, 
     onboardUser, 
-    leaveRoom 
+    leaveRoom,
+    chatMessages
   } = useRoom();
 
   const [activeTab, setActiveTab] = useState('calendar'); // calendar, location, chat, roulette, wrapup
   const [copied, setCopied] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
+  const [shouldShake, setShouldShake] = useState(false);
+
+  // Trigger screen shake when nudge bomb is received
+  useEffect(() => {
+    if (chatMessages && chatMessages.length > 0) {
+      const lastMsg = chatMessages[chatMessages.length - 1];
+      if (lastMsg.type === 'bomb') {
+        setShouldShake(true);
+        if (navigator.vibrate) {
+          navigator.vibrate([150, 100, 150]); // premium vibration pattern
+        }
+        const timer = setTimeout(() => setShouldShake(false), 500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [chatMessages]);
 
   // Initialize Kakao SDK
   useEffect(() => {
@@ -237,7 +254,7 @@ const RoomContainer = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between relative bg-[#f8fafc]">
+    <div className={`min-h-screen flex flex-col justify-between relative bg-[#f8fafc] ${shouldShake ? 'shake-active' : ''}`}>
       {/* 🚀 Header */}
       <header className="glass-panel sticky top-0 z-40 px-4 py-3 flex items-center justify-between shadow-sm border-b border-slate-100">
         <button

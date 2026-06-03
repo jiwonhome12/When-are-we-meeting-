@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { useRoom } from '../context/RoomContext';
-import { Award, Calendar, MapPin, Clock, Download, ChevronRight, UserCheck, ShieldAlert, Sparkles, RefreshCw } from 'lucide-react';
+import { Award, Calendar, MapPin, Clock, Download, ChevronRight, UserCheck, ShieldAlert, Sparkles, RefreshCw, FileText, Undo2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 const HOURS = Array.from({ length: 144 }, (_, i) => {
   const h = Math.floor(i / 6);
@@ -17,6 +18,7 @@ const WrapupTab = () => {
     locations, 
     rouletteResult,
     finalizeYaksok, 
+    reopenRoom,
     leaveRoom 
   } = useRoom();
 
@@ -152,6 +154,39 @@ const WrapupTab = () => {
       setIsDownloading(false);
     }).catch(err => {
       console.error(err);
+      setIsDownloading(false);
+    });
+  };
+
+  const handleDownloadPDF = () => {
+    if (!receiptRef.current || isDownloading) return;
+    setIsDownloading(true);
+
+    html2canvas(receiptRef.current, {
+      backgroundColor: '#f8fafc',
+      scale: 2, // High resolution
+      logging: false,
+      useCORS: true
+    }).then(canvas => {
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Calculate PDF dimensions based on A4 standard
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 295; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      let position = 0;
+      
+      if (imgHeight < pageHeight) {
+        position = (pageHeight - imgHeight) / 2; // Center vertically
+      }
+      
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      pdf.save(`baro_yaksok_${roomInfo.code}.pdf`);
+      setIsDownloading(false);
+    }).catch(err => {
+      console.error("PDF generation failed:", err);
       setIsDownloading(false);
     });
   };
@@ -401,6 +436,34 @@ const WrapupTab = () => {
             </>
           )}
         </button>
+
+        <button
+          onClick={handleDownloadPDF}
+          disabled={isDownloading}
+          className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer"
+        >
+          {isDownloading ? (
+            <>
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              PDF 생성 중...
+            </>
+          ) : (
+            <>
+              <FileText className="w-4 h-4 text-emerald-400" />
+              영수증 PDF 파일로 저장 (PDF)
+            </>
+          )}
+        </button>
+
+        {isHost && (
+          <button
+            onClick={reopenRoom}
+            className="w-full py-3 bg-rose-50 hover:bg-rose-100/80 text-[#C00A4A] border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+          >
+            <Undo2 className="w-4 h-4" />
+            약속 조율 수정하기 (마감 취소)
+          </button>
+        )}
 
         <button
           onClick={leaveRoom}

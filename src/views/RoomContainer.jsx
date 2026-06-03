@@ -56,7 +56,7 @@ const RoomContainer = () => {
   useEffect(() => {
     if (window.Kakao && !window.Kakao.isInitialized()) {
       try {
-        window.Kakao.init('a0e4f4645234d2c9d2a60c1306798111');
+        window.Kakao.init('a7ebbfa117de429657367c9dfa9061bd');
       } catch (err) {
         console.error("Kakao SDK initialization error:", err);
       }
@@ -361,59 +361,57 @@ const RoomContainer = () => {
       </main>
 
       {/* 📱 Bottom Navigation TabBar */}
-      {roomInfo?.step !== 'wrapup' && (
-        <nav className="glass-panel sticky bottom-0 z-40 px-2 py-2 flex items-center justify-around shadow-inner border-t border-slate-100">
-          <button
-            onClick={() => setActiveTab('calendar')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all cursor-pointer select-none ${
-              activeTab === 'calendar' ? getUserColorClass() : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            <Calendar className={`w-5 h-5 ${activeTab === 'calendar' ? 'animate-pulse' : ''}`} />
-            <span className="text-[10px] font-bold">일정 조율</span>
-          </button>
-          
-          <button
-            onClick={() => setActiveTab('location')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all cursor-pointer select-none ${
-              activeTab === 'location' ? getUserColorClass() : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            <MapPin className={`w-5 h-5 ${activeTab === 'location' ? 'animate-pulse' : ''}`} />
-            <span className="text-[10px] font-bold">장소 조율</span>
-          </button>
-          
-          <button
-            onClick={() => setActiveTab('chat')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all cursor-pointer select-none ${
-              activeTab === 'chat' ? getUserColorClass() : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            <MessageSquare className={`w-5 h-5 ${activeTab === 'chat' ? 'animate-pulse' : ''}`} />
-            <span className="text-[10px] font-bold">실시간 소통</span>
-          </button>
-          
-          <button
-            onClick={() => setActiveTab('roulette')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all cursor-pointer select-none ${
-              activeTab === 'roulette' ? getUserColorClass() : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            <Dices className={`w-5 h-5 ${activeTab === 'roulette' ? 'animate-pulse' : ''}`} />
-            <span className="text-[10px] font-bold">결정 도우미</span>
-          </button>
-          
-          <button
-            onClick={() => setActiveTab('wrapup')}
-            className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all cursor-pointer select-none ${
-              activeTab === 'wrapup' ? getUserColorClass() : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            <Award className={`w-5 h-5 ${activeTab === 'wrapup' ? 'animate-pulse' : ''}`} />
-            <span className="text-[10px] font-bold">마무리</span>
-          </button>
-        </nav>
-      )}
+      <nav className="glass-panel sticky bottom-0 z-40 px-2 py-2 flex items-center justify-around shadow-inner border-t border-slate-100">
+        <button
+          onClick={() => setActiveTab('calendar')}
+          className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all cursor-pointer select-none ${
+            activeTab === 'calendar' ? getUserColorClass() : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <Calendar className={`w-5 h-5 ${activeTab === 'calendar' ? 'animate-pulse' : ''}`} />
+          <span className="text-[10px] font-bold">일정 조율</span>
+        </button>
+        
+        <button
+          onClick={() => setActiveTab('location')}
+          className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all cursor-pointer select-none ${
+            activeTab === 'location' ? getUserColorClass() : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <MapPin className={`w-5 h-5 ${activeTab === 'location' ? 'animate-pulse' : ''}`} />
+          <span className="text-[10px] font-bold">장소 조율</span>
+        </button>
+        
+        <button
+          onClick={() => setActiveTab('chat')}
+          className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all cursor-pointer select-none ${
+            activeTab === 'chat' ? getUserColorClass() : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <MessageSquare className={`w-5 h-5 ${activeTab === 'chat' ? 'animate-pulse' : ''}`} />
+          <span className="text-[10px] font-bold">실시간 소통</span>
+        </button>
+        
+        <button
+          onClick={() => setActiveTab('roulette')}
+          className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all cursor-pointer select-none ${
+            activeTab === 'roulette' ? getUserColorClass() : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <Dices className={`w-5 h-5 ${activeTab === 'roulette' ? 'animate-pulse' : ''}`} />
+          <span className="text-[10px] font-bold">결정 도우미</span>
+        </button>
+        
+        <button
+          onClick={() => setActiveTab('wrapup')}
+          className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-2xl transition-all cursor-pointer select-none ${
+            activeTab === 'wrapup' ? getUserColorClass() : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <Award className={`w-5 h-5 ${activeTab === 'wrapup' ? 'animate-pulse' : ''}`} />
+          <span className="text-[10px] font-bold">마무리</span>
+        </button>
+      </nav>
 
       {/* 👥 Detailed Members Profiles Modal */}
       {showMembersModal && (

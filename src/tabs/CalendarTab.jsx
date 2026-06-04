@@ -169,34 +169,34 @@ const CalendarTab = ({ setActiveTab }) => {
     setSelectedDate(today.toISOString().split('T')[0]);
   };
 
-  // Find the slot with the maximum votes globally
-  const { bestCell, maxVotes } = useMemo(() => {
-    let best = null;
+  // Find the slots with the maximum votes globally (handling ties)
+  const { bestCells, maxVotes } = useMemo(() => {
+    let bests = [];
     let max = 0;
     Object.entries(calendarVotes).forEach(([cellKey, votes]) => {
       if (votes.length > max) {
         max = votes.length;
-        best = cellKey;
+        bests = [cellKey];
+      } else if (votes.length === max && max > 0) {
+        bests.push(cellKey);
       }
     });
-    return { bestCell: best, maxVotes: max };
+    return { bestCells: bests, maxVotes: max };
   }, [calendarVotes]);
 
   // Calculate day-specific voting summary for heat map indicator
   const getDayVoteSummary = (dayKey) => {
-    let slotCount = 0;
+    const uniqueVoters = new Set();
     let maxVotedForDay = 0;
     MINUTES_10.forEach(time => {
       const cellKey = `${dayKey}_${time}`;
       const v = calendarVotes[cellKey] || [];
-      if (v.length > 0) {
-        slotCount++;
-        if (v.length > maxVotedForDay) {
-          maxVotedForDay = v.length;
-        }
+      v.forEach(vId => uniqueVoters.add(vId));
+      if (v.length > maxVotedForDay) {
+        maxVotedForDay = v.length;
       }
     });
-    return { slotCount, maxVotedForDay };
+    return { uniqueVotersCount: uniqueVoters.size, maxVotedForDay };
   };
 
   // Drag select handlers
@@ -241,12 +241,15 @@ const CalendarTab = ({ setActiveTab }) => {
 
   // Announce the best time to chat
   const handleAnnounceBestTime = () => {
-    if (!bestCell) return;
-    const [dayKey, hour] = bestCell.split('_');
-    const dayDate = new Date(dayKey);
-    const label = dayDate.toLocaleDateString([], { month: 'numeric', day: 'numeric' });
-    const dayOfWeek = dayDate.toLocaleDateString([], { weekday: 'short' });
-    const text = `📅 제일 많은 사람들이 가능해요! [${label}(${dayOfWeek}) ${hour}] 시간대 어떠세요?`;
+    if (bestCells.length === 0) return;
+    const listStr = bestCells.map(cell => {
+      const [dayKey, hour] = cell.split('_');
+      const d = new Date(dayKey);
+      const label = d.toLocaleDateString([], { month: 'numeric', day: 'numeric' });
+      const dayOfWeek = d.toLocaleDateString([], { weekday: 'short' });
+      return `${label}(${dayOfWeek}) ${hour}`;
+    }).join(', ');
+    const text = `📅 제일 많은 사람들이 가능해요! [${listStr}] 시간대 어떠세요?`;
     sendChatMessage(text, 'link', 'calendar');
     if (setActiveTab) setActiveTab('chat');
   };
@@ -265,6 +268,11 @@ const CalendarTab = ({ setActiveTab }) => {
   const getParticipantEmoji = (userId) => {
     const p = participants.find(part => part.id === userId);
     return p ? p.emoji : '👤';
+  };
+
+  const getParticipantName = (userId) => {
+    const p = participants.find(part => part.id === userId);
+    return p ? p.name : '참여자';
   };
 
   const formattedSelectedDate = useMemo(() => {
@@ -291,20 +299,20 @@ const CalendarTab = ({ setActiveTab }) => {
       </div>
 
       {/* 📅 Best Time Highlight Card */}
-      {bestCell && maxVotes > 0 && (
+      {bestCells.length > 0 && maxVotes > 0 && (
         <div className="glass-card p-4 rounded-2xl border border-[#C00A4A]/20 flex items-center justify-between shadow-md bg-white animate-fade-in-up">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#C00A4A]/10 text-[#C00A4A] flex items-center justify-center pulse-primary shrink-0">
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-[10px] sm:text-xs font-bold text-[#C00A4A] uppercase tracking-wider block">💡 추천 시간 ({maxVotes}명)</span>
+              <span className="text-[10px] sm:text-xs font-bold text-[#C00A4A] uppercase tracking-wider block">💡 추천 시간 ({maxVotes}명 찬성)</span>
               <h3 className="text-xs sm:text-sm font-extrabold text-slate-800 mt-0.5">
-                {(() => {
-                  const [dayKey, hour] = bestCell.split('_');
+                {bestCells.map(cell => {
+                  const [dayKey, hour] = cell.split('_');
                   const d = new Date(dayKey);
                   return `${d.getMonth() + 1}월 ${d.getDate()}일 (${d.toLocaleDateString([], { weekday: 'short' })}) ${hour}`;
-                })()}
+                }).join(', ')}
               </h3>
             </div>
           </div>
@@ -398,8 +406,8 @@ const CalendarTab = ({ setActiveTab }) => {
                 const isWithinRange = itemDate >= startLimit && itemDate <= endLimit;
                 
                 // Get votes on this specific day for Heat map
-                const { slotCount, maxVotedForDay } = getDayVoteSummary(dayItem.key);
-                const hasVotes = slotCount > 0;
+                const { uniqueVotersCount, maxVotedForDay } = getDayVoteSummary(dayItem.key);
+                const hasVotes = uniqueVotersCount > 0;
                 
                 return (
                   <button
@@ -430,9 +438,9 @@ const CalendarTab = ({ setActiveTab }) => {
                           }}
                         />
                       )}
-                      {slotCount > 0 && (
+                      {uniqueVotersCount > 0 && (
                         <span className={`text-[9px] font-bold leading-none ${isSelected ? 'text-white/80' : 'text-slate-500'}`}>
-                          {slotCount}
+                          {uniqueVotersCount}명
                         </span>
                       )}
                     </div>
@@ -657,7 +665,7 @@ const CalendarTab = ({ setActiveTab }) => {
               <div className="space-y-1.5 overflow-y-auto max-h-[140px] pr-1 scrollbar-thin">
                 {groupedVotedSlots.map(({ startTime, endTime, votes, keys }) => {
                   const isUserVoted = currentUser ? votes.includes(currentUser.id) : false;
-                  const isBest = keys.includes(bestCell) && maxVotes > 0;
+                  const isBest = keys.some(k => bestCells.includes(k)) && maxVotes > 0;
                   const rangeLabel = startTime === endTime 
                     ? startTime 
                     : (startTime === '00:00' && endTime === '23:50' 
@@ -708,6 +716,7 @@ const CalendarTab = ({ setActiveTab }) => {
                               key={vId}
                               className="w-4 h-4 rounded-full border border-white flex items-center justify-center text-[8px]"
                               style={{ backgroundColor: getParticipantColor(vId) }}
+                              title={getParticipantName(vId)}
                             >
                               {getParticipantEmoji(vId)}
                             </div>

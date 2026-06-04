@@ -12,13 +12,16 @@ const Dashboard = ({ onCreateRoomClick }) => {
 
   // Load recent rooms from local storage
   useEffect(() => {
-    const saved = localStorage.getItem('baro_yaksok_active_rooms');
+    const userSuffix = currentUser?.id || 'guest';
+    const saved = localStorage.getItem(`baro_yaksok_active_rooms_${userSuffix}`);
     if (saved) {
       // Show latest first, limit to 4
       const list = JSON.parse(saved).reverse().slice(0, 4);
       setRecentRooms(list);
+    } else {
+      setRecentRooms([]);
     }
-  }, []);
+  }, [currentUser]);
 
   // Format code to auto-insert dashes (e.g., ABCD-EFGH-12)
   const handleCodeChange = (e) => {
@@ -39,7 +42,8 @@ const Dashboard = ({ onCreateRoomClick }) => {
       const savedDb = localStorage.getItem(`room_db_${value}`);
       if (savedDb) {
         const db = JSON.parse(savedDb);
-        const activeRooms = JSON.parse(localStorage.getItem('baro_yaksok_active_rooms') || '[]');
+        const userSuffix = currentUser?.id || 'guest';
+        const activeRooms = JSON.parse(localStorage.getItem(`baro_yaksok_active_rooms_${userSuffix}`) || '[]');
         const alreadyJoined = activeRooms.some(r => r.code === value);
         
         if (db.roomInfo.isPrivate && !alreadyJoined) {

@@ -17,6 +17,7 @@ const WrapupTab = () => {
     currentUser, 
     locations, 
     rouletteResult,
+    calendarVotes,
     finalizeYaksok, 
     reopenRoom,
     leaveRoom,
@@ -182,7 +183,70 @@ const WrapupTab = () => {
     }
   }, [rouletteResult, DAYS.length, locations.length]);
 
+  // Auto-select the top voted time slot for the selected day
+  React.useEffect(() => {
+    if (rankedTimes.length > 0) {
+      setSelectedHour(rankedTimes[0].time);
+    }
+  }, [activeDayKey, rankedTimes]);
+
   const activeDayKey = selectedDayKey || DAYS[0]?.key || '';
+
+  // Sort and rank time slots based on votes count (supporting ties)
+  const rankedTimes = React.useMemo(() => {
+    const votedList = [];
+    HOURS.forEach(time => {
+      const cellKey = `${activeDayKey}_${time}`;
+      const votes = calendarVotes[cellKey] || [];
+      if (votes.length > 0) {
+        votedList.push({ time, votesCount: votes.length });
+      }
+    });
+
+    votedList.sort((a, b) => {
+      if (b.votesCount !== a.votesCount) return b.votesCount - a.votesCount;
+      return a.time.localeCompare(b.time);
+    });
+
+    const ranked = [];
+    let currentRank = 1;
+    let prevVotesCount = -1;
+    
+    votedList.forEach((item, index) => {
+      if (prevVotesCount !== -1 && item.votesCount < prevVotesCount) {
+        currentRank = index + 1;
+      }
+      ranked.push({
+        ...item,
+        rank: currentRank
+      });
+      prevVotesCount = item.votesCount;
+    });
+
+    return ranked;
+  }, [activeDayKey, calendarVotes]);
+
+  // Sort and rank locations based on votes count (supporting ties)
+  const rankedLocations = React.useMemo(() => {
+    const list = [...locations];
+    list.sort((a, b) => b.votes.length - a.votes.length);
+    
+    const ranked = [];
+    let currentRank = 1;
+    let prevVotesCount = -1;
+    
+    list.forEach((item, index) => {
+      if (prevVotesCount !== -1 && item.votes.length < prevVotesCount) {
+        currentRank = index + 1;
+      }
+      ranked.push({
+        ...item,
+        rank: currentRank
+      });
+      prevVotesCount = item.votes.length;
+    });
+    return ranked;
+  }, [locations]);
 
   const handleFinalize = () => {
     let finalLocName = '';
@@ -350,13 +414,25 @@ const WrapupTab = () => {
                 <select
                   value={selectedHour}
                   onChange={(e) => setSelectedHour(e.target.value)}
-                  className="w-full glass-input rounded-2xl py-3 px-4 text-xs font-extrabold focus:border-[#C00A4A] cursor-pointer"
+                  className="w-full glass-input rounded-2xl py-3 px-4 text-xs font-extrabold focus:border-[#C00A4A] cursor-pointer text-slate-850"
                 >
-                  {HOURS.map(hour => (
-                    <option key={hour} value={hour} className="text-slate-800 font-semibold">
-                      {hour}
-                    </option>
-                  ))}
+                  <optgroup label="🔥 투표 결과 (인기 순위)">
+                    {rankedTimes.map(rt => (
+                      <option key={rt.time} value={rt.time} className="text-slate-800 font-extrabold">
+                        🏆 {rt.rank}순위: {rt.time} ({rt.votesCount}명 찬성)
+                      </option>
+                    ))}
+                    {rankedTimes.length === 0 && (
+                      <option disabled className="text-slate-400 font-semibold">아직 투표된 시간이 없습니다.</option>
+                    )}
+                  </optgroup>
+                  <optgroup label="⏱️ 전체 시간대">
+                    {HOURS.map(hour => (
+                      <option key={hour} value={hour} className="text-slate-600 font-medium">
+                        {hour}
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
               </div>
 
@@ -370,19 +446,28 @@ const WrapupTab = () => {
                   onChange={(e) => setSelectedLocId(e.target.value)}
                   className="w-full glass-input rounded-2xl py-3 px-4 text-xs font-extrabold focus:border-[#C00A4A] cursor-pointer"
                 >
-                  {locations.map(loc => (
-                    <option key={loc.id} value={loc.id} className="text-slate-800 font-semibold">
-                      📍 {loc.name} ({loc.votes.length}표)
-                    </option>
-                  ))}
+                  <optgroup label="🔥 후보 장소 투표 순위">
+                    {rankedLocations.map(loc => (
+                      <option key={loc.id} value={loc.id} className="text-slate-850 font-bold">
+                        🏆 {loc.rank}순위: 📍 {loc.name} ({loc.votes.length}표)
+                      </option>
+                    ))}
+                    {rankedLocations.length === 0 && (
+                      <option disabled className="text-slate-400 font-semibold">등록된 후보지가 없습니다.</option>
+                    )}
+                  </optgroup>
                   {rouletteResult && (
-                    <option value="roulette" className="text-slate-800 font-semibold">
-                      🎲 룰렛 당첨지: {rouletteResult.name}
-                    </option>
+                    <optgroup label="🎲 결정 도우미 결과">
+                      <option value="roulette" className="text-slate-800 font-semibold">
+                        🎲 룰렛 당첨지: {rouletteResult.winners?.[0]?.name || '미정'}
+                      </option>
+                    </optgroup>
                   )}
-                  <option value="custom" className="text-slate-800 font-semibold">
-                    ✍️ 직접 수동 입력...
-                  </option>
+                  <optgroup label="기타">
+                    <option value="custom" className="text-slate-800 font-semibold">
+                      ✍️ 직접 수동 입력...
+                    </option>
+                  </optgroup>
                 </select>
 
                 {selectedLocId === 'custom' && (

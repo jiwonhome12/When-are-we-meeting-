@@ -54,10 +54,11 @@ export const RoomProvider = ({ children }) => {
             setRouletteResult(db.rouletteResult || null);
             
             // Add to active rooms list
-            const activeRooms = JSON.parse(localStorage.getItem('baro_yaksok_active_rooms') || '[]');
+            const userSuffix = currentUser?.id || 'guest';
+            const activeRooms = JSON.parse(localStorage.getItem(`baro_yaksok_active_rooms_${userSuffix}`) || '[]');
             if (!activeRooms.some(r => r.code === codeParam)) {
               activeRooms.push({ code: codeParam, title: db.roomInfo.title, type: db.roomInfo.type, createdAt: db.roomInfo.createdAt });
-              localStorage.setItem('baro_yaksok_active_rooms', JSON.stringify(activeRooms));
+              localStorage.setItem(`baro_yaksok_active_rooms_${userSuffix}`, JSON.stringify(activeRooms));
             }
           } else {
             // No local DB found (guest entering via shared URL link on a different browser/tab)
@@ -214,9 +215,10 @@ export const RoomProvider = ({ children }) => {
     setRouletteResult(null);
 
     // Save mock room directory
-    const activeRooms = JSON.parse(localStorage.getItem('baro_yaksok_active_rooms') || '[]');
+    const userSuffix = currentUser?.id || 'guest';
+    const activeRooms = JSON.parse(localStorage.getItem(`baro_yaksok_active_rooms_${userSuffix}`) || '[]');
     activeRooms.push({ code, title: initialInfo.title, type: initialInfo.type, createdAt: initialInfo.createdAt });
-    localStorage.setItem('baro_yaksok_active_rooms', JSON.stringify(activeRooms));
+    localStorage.setItem(`baro_yaksok_active_rooms_${userSuffix}`, JSON.stringify(activeRooms));
 
     const initialDb = {
       roomInfo: initialInfo,
@@ -235,8 +237,6 @@ export const RoomProvider = ({ children }) => {
     const savedDb = localStorage.getItem(`room_db_${code}`);
     
     if (!savedDb) {
-      // If the room database is not in LocalStorage (e.g., guest joining via code input),
-      // initialize roomCode and placeholder roomInfo to trigger BroadcastChannel sync.
       const placeholderInfo = {
         code,
         title: '약속방 연결 중...',
@@ -257,7 +257,8 @@ export const RoomProvider = ({ children }) => {
     }
 
     const db = JSON.parse(savedDb);
-    const activeRooms = JSON.parse(localStorage.getItem('baro_yaksok_active_rooms') || '[]');
+    const userSuffix = currentUser?.id || 'guest';
+    const activeRooms = JSON.parse(localStorage.getItem(`baro_yaksok_active_rooms_${userSuffix}`) || '[]');
     const alreadyJoined = activeRooms.some(r => r.code === code);
 
     if (db.roomInfo.isPrivate && !alreadyJoined && db.roomInfo.password !== enteredPassword) {
@@ -275,7 +276,7 @@ export const RoomProvider = ({ children }) => {
     // Add to user's recent rooms
     if (!alreadyJoined) {
       activeRooms.push({ code, title: db.roomInfo.title, type: db.roomInfo.type, createdAt: db.roomInfo.createdAt });
-      localStorage.setItem('baro_yaksok_active_rooms', JSON.stringify(activeRooms));
+      localStorage.setItem(`baro_yaksok_active_rooms_${userSuffix}`, JSON.stringify(activeRooms));
     }
     return db.roomInfo;
   };
@@ -296,6 +297,20 @@ export const RoomProvider = ({ children }) => {
 
     setCurrentUser(newUser);
     sessionStorage.setItem('baro_yaksok_user', JSON.stringify(newUser));
+
+    // Copy rooms from guest list to user-specific list
+    const guestRooms = JSON.parse(localStorage.getItem('baro_yaksok_active_rooms_guest') || '[]');
+    const userSuffix = userId;
+    const activeRooms = JSON.parse(localStorage.getItem(`baro_yaksok_active_rooms_${userSuffix}`) || '[]');
+    guestRooms.forEach(gr => {
+      if (!activeRooms.some(r => r.code === gr.code)) {
+        activeRooms.push(gr);
+      }
+    });
+    if (roomCode && roomInfo && !activeRooms.some(r => r.code === roomCode)) {
+      activeRooms.push({ code: roomCode, title: roomInfo.title, type: roomInfo.type, createdAt: roomInfo.createdAt });
+    }
+    localStorage.setItem(`baro_yaksok_active_rooms_${userSuffix}`, JSON.stringify(activeRooms));
 
     setParticipants(prev => {
       const exists = prev.some(p => p.id === userId);

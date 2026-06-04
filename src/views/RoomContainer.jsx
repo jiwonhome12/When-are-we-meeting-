@@ -139,7 +139,7 @@ const RoomContainer = () => {
         </div>
 
         <div className="glass-card rounded-3xl p-6 w-full max-w-md border border-slate-200/60 shadow-xl animate-fade-in-up z-10">
-          <div className="text-center mb-6">
+          <div className="text-center mb-5">
             <h3 className="text-lg font-extrabold text-slate-900 flex items-center justify-center gap-1.5">
               <Sparkles className="w-5 h-5 text-[#C00A4A]" />
               바로약속 프로필 생성
@@ -148,6 +148,28 @@ const RoomContainer = () => {
               약속방에 참가하기 위해 사용할 닉네임과 아바타를 설정해주세요.
             </p>
           </div>
+
+          {/* List of current members already in the room */}
+          {participants.length > 0 && (
+            <div className="mb-5 bg-slate-50 border border-slate-100 p-3 rounded-2xl">
+              <span className="text-[9px] font-black text-slate-400 block mb-1.5 text-center select-none uppercase tracking-wider">
+                현재 대기실 멤버 ({participants.length}명)
+              </span>
+              <div className="flex flex-wrap gap-1.5 justify-center">
+                {participants.map(p => (
+                  <div 
+                    key={p.id} 
+                    className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-full border border-slate-200 text-[10px] font-black text-slate-705 shrink-0 shadow-sm"
+                    style={{ borderColor: getHexColor(p.color) }}
+                  >
+                    <span>{p.emoji}</span>
+                    <span className="max-w-[60px] truncate">{p.name}</span>
+                    {p.isHost && <span className="text-[#C00A4A] text-[8px]">★</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Profile Avatar Preview */}
           <div className="flex flex-col items-center justify-center mb-5">
@@ -329,23 +351,16 @@ const RoomContainer = () => {
           <Users className="w-3.5 h-3.5 text-slate-400" />
           <span>MEMBERS ({participants.length}/{roomInfo?.limit})</span>
         </div>
-        <div className="flex -space-x-1.5 overflow-x-auto max-w-[200px] py-0.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto max-w-[70%] py-0.5 scrollbar-none">
           {participants.map((p) => (
             <div
               key={p.id}
-              className="w-6.5 h-6.5 rounded-full flex items-center justify-center text-xs border-2 border-white relative shadow-sm"
-              style={{ 
-                backgroundColor: getHexColor(p.color),
-                zIndex: p.id === currentUser.id ? 10 : 1
-              }}
-              title={`${p.name} (${p.color})`}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-slate-200 bg-white shadow-sm text-[9.5px] font-black text-slate-700 shrink-0"
+              style={{ borderColor: getHexColor(p.color) }}
             >
-              {p.emoji}
-              {p.isHost && (
-                <span className="absolute -top-0.5 -right-0.5 text-[6px] bg-[#C00A4A] text-white rounded-full w-2.5 h-2.5 flex items-center justify-center font-bold">
-                  ★
-                </span>
-              )}
+              <span>{p.emoji}</span>
+              <span className="max-w-[50px] truncate">{p.name}</span>
+              {p.isHost && <span className="text-[#C00A4A] text-[8px] font-black">★</span>}
             </div>
           ))}
         </div>

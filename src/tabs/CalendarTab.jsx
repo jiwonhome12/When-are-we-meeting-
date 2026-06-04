@@ -39,8 +39,8 @@ const CalendarTab = ({ setActiveTab }) => {
   const hourOptions = useMemo(() => Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')), []);
   const minuteOptions = useMemo(() => ['00', '10', '20', '30', '40', '50'], []);
 
-  // Get active (voted) slots for selectedDate
-  const votedSlotsForSelectedDate = useMemo(() => {
+  // Get active (voted) slots for selectedDate grouped by consecutive ranges with the same voters
+  const groupedVotedSlots = useMemo(() => {
     const arr = [];
     MINUTES_10.forEach(time => {
       const cellKey = `${selectedDate}_${time}`;
@@ -49,7 +49,55 @@ const CalendarTab = ({ setActiveTab }) => {
         arr.push({ time, votes, key: cellKey });
       }
     });
-    return arr.sort((a, b) => a.time.localeCompare(b.time));
+    arr.sort((a, b) => a.time.localeCompare(b.time));
+
+    if (arr.length === 0) return [];
+
+    const groups = [];
+    let currentGroup = null;
+
+    const areVotesEqual = (v1, v2) => {
+      if (v1.length !== v2.length) return false;
+      const s1 = new Set(v1);
+      return v2.every(v => s1.has(v));
+    };
+
+    const getMinutes = (timeStr) => {
+      const [h, m] = timeStr.split(':').map(Number);
+      return h * 60 + m;
+    };
+
+    arr.forEach(slot => {
+      if (!currentGroup) {
+        currentGroup = {
+          startTime: slot.time,
+          endTime: slot.time,
+          votes: slot.votes,
+          keys: [slot.key]
+        };
+      } else {
+        const prevMinutes = getMinutes(currentGroup.endTime);
+        const currMinutes = getMinutes(slot.time);
+        
+        if (currMinutes - prevMinutes === 10 && areVotesEqual(currentGroup.votes, slot.votes)) {
+          currentGroup.endTime = slot.time;
+          currentGroup.keys.push(slot.key);
+        } else {
+          groups.push(currentGroup);
+          currentGroup = {
+            startTime: slot.time,
+            endTime: slot.time,
+            votes: slot.votes,
+            keys: [slot.key]
+          };
+        }
+      }
+    });
+    if (currentGroup) {
+      groups.push(currentGroup);
+    }
+
+    return groups;
   }, [selectedDate, calendarVotes]);
 
   const [isDragging, setIsDragging] = useState(false);
@@ -600,21 +648,27 @@ const CalendarTab = ({ setActiveTab }) => {
                 🧹 비우기
               </button>
             </div>
-            {votedSlotsForSelectedDate.length === 0 ? (
+            {groupedVotedSlots.length === 0 ? (
               <div className="bg-slate-50/50 border border-dashed border-slate-200 rounded-xl p-4 text-center text-xs text-slate-400 font-semibold leading-relaxed my-auto">
                 아직 투표된 시간대가 없습니다.<br />
                 위의 다이얼을 굴려 시간을 선택해 보세요!
               </div>
             ) : (
               <div className="space-y-1.5 overflow-y-auto max-h-[140px] pr-1 scrollbar-thin">
-                {votedSlotsForSelectedDate.map(({ time, votes, key }) => {
+                {groupedVotedSlots.map(({ startTime, endTime, votes, keys }) => {
                   const isUserVoted = currentUser ? votes.includes(currentUser.id) : false;
-                  const isBest = bestCell === key && maxVotes > 0;
+                  const isBest = keys.includes(bestCell) && maxVotes > 0;
+                  const rangeLabel = startTime === endTime 
+                    ? startTime 
+                    : (startTime === '00:00' && endTime === '23:50' 
+                      ? '하루 종일' 
+                      : (endTime === '23:50' ? `${startTime} 이후 ~` : `${startTime} ~ ${endTime}`));
+                  
                   return (
                     <div
-                      key={time}
+                      key={startTime}
                       onClick={() => {
-                        const [h, m] = time.split(':');
+                        const [h, m] = startTime.split(':');
                         setPickerHour(h);
                         setPickerMinute(m);
                       }}
@@ -625,8 +679,8 @@ const CalendarTab = ({ setActiveTab }) => {
                       }`}
                     >
                       <div className="flex items-center gap-1.5">
-                        <span className={`text-xs font-mono font-bold ${isUserVoted ? 'text-[#C00A4A] font-extrabold' : 'text-slate-700'}`}>
-                          {time}
+                        <span className={`text-xs font-mono font-bold ${isUserVoted ? 'text-[#C00A4A]' : 'text-slate-700'}`}>
+                          {rangeLabel}
                         </span>
                         {isBest && (
                           <span className="text-[8px] font-extrabold bg-[#C00A4A] text-white px-1 py-0.5 rounded leading-none">
@@ -640,7 +694,7 @@ const CalendarTab = ({ setActiveTab }) => {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              toggleTimeVotes([key], false);
+                              toggleTimeVotes(keys, false);
                             }}
                             className="p-1 hover:bg-rose-100/80 rounded-lg text-rose-500 transition-colors cursor-pointer shrink-0"
                             title="내 투표 삭제"

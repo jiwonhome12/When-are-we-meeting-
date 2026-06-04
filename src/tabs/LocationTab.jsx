@@ -39,6 +39,7 @@ const LocationTab = () => {
   const [tempPlaceName, setTempPlaceName] = useState('');
   const [tempComment, setTempComment] = useState('');
   const [tempCategory, setTempCategory] = useState('기타');
+  const [tempPlaceUrl, setTempPlaceUrl] = useState('');
   const [mapLoaded, setMapLoaded] = useState(false);
   const [recommendationCenter, setRecommendationCenter] = useState(null);
   const [dynamicRecommendations, setDynamicRecommendations] = useState([]);
@@ -339,6 +340,7 @@ const LocationTab = () => {
       setTempPlaceName(place.place_name);
       setTempComment(''); // Reset comment on new search select
       setTempCategory('검색지');
+      setTempPlaceUrl(place.place_url || '');
 
       if (clickMarkerRef.current) {
         clickMarkerRef.current.setMap(null);
@@ -396,7 +398,8 @@ const LocationTab = () => {
             rating: (4.5 + (parseInt(item.id) % 5) * 0.1).toFixed(1),
             distance: distanceStr,
             x: item.x,
-            y: item.y
+            y: item.y,
+            placeUrl: item.place_url
           };
         });
         setDynamicRecommendations(formatted);
@@ -432,12 +435,14 @@ const LocationTab = () => {
       tempCategory, 
       selectedLatLng ? selectedLatLng.getLat() : null, 
       selectedLatLng ? selectedLatLng.getLng() : null,
-      tempComment.trim() // Save comment
+      tempComment.trim(), // Save comment
+      tempPlaceUrl
     );
     
     // Clear temp state
     setTempPlaceName('');
     setTempComment('');
+    setTempPlaceUrl('');
     setSelectedLatLng(null);
     if (clickMarkerRef.current) {
       clickMarkerRef.current.setMap(null);
@@ -630,9 +635,21 @@ const LocationTab = () => {
                     </p>
                   </div>
                   <div className="flex items-center justify-between pt-1">
-                    <span className="text-[8.5px] font-extrabold text-[#C00A4A] bg-[#C00A4A]/5 px-2 py-0.5 rounded-lg border border-[#C00A4A]/10">
-                      📍 지도보기
-                    </span>
+                    {rec.place_url ? (
+                      <a
+                        href={rec.place_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[8.5px] font-extrabold text-[#C00A4A] bg-[#C00A4A]/5 px-2 py-0.5 rounded-lg border border-[#C00A4A]/10 hover:bg-[#C00A4A]/15 transition-colors"
+                      >
+                        🔗 상세보기
+                      </a>
+                    ) : (
+                      <span className="text-[8.5px] font-extrabold text-[#C00A4A] bg-[#C00A4A]/5 px-2 py-0.5 rounded-lg border border-[#C00A4A]/10">
+                        📍 지도보기
+                      </span>
+                    )}
                     <button
                       type="button"
                       onClick={(e) => {
@@ -673,9 +690,22 @@ const LocationTab = () => {
                     <p className="text-[10px] text-slate-400 truncate mt-1">{rec.address}</p>
                   </div>
                   <div className="flex items-center justify-between pt-1">
-                    <span className="text-[9px] font-bold text-[#C00A4A] bg-[#C00A4A]/5 px-2 py-0.5 rounded-lg border border-[#C00A4A]/10">
-                      📍 {rec.distance}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] font-bold text-[#C00A4A] bg-[#C00A4A]/5 px-1.5 py-0.5 rounded-lg border border-[#C00A4A]/10">
+                        📍 {rec.distance}
+                      </span>
+                      {rec.placeUrl && (
+                        <a
+                          href={rec.placeUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-[9px] font-bold text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors shrink-0"
+                        >
+                          상세보기
+                        </a>
+                      )}
+                    </div>
                     <button
                       onClick={() => !alreadyAdded && handleRecommend(rec)}
                       disabled={alreadyAdded}
@@ -734,6 +764,16 @@ const LocationTab = () => {
                       <span className="text-[9px] font-bold bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-lg border border-slate-200/50">
                         {loc.category}
                       </span>
+                      {loc.placeUrl && (
+                        <a
+                          href={loc.placeUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[9px] font-extrabold text-[#C00A4A] hover:underline"
+                        >
+                          상세보기 🔗
+                        </a>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5 text-[9px] text-slate-400">
                       <span className="font-semibold">추천자: {proposer ? `${proposer.emoji} ${proposer.name}` : '참여자'}</span>

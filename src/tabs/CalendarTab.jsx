@@ -39,17 +39,21 @@ const CalendarTab = ({ setActiveTab }) => {
   const hourOptions = useMemo(() => Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')), []);
   const minuteOptions = useMemo(() => ['00', '10', '20', '30', '40', '50'], []);
 
-  // Get active (voted) slots for selectedDate grouped by consecutive ranges with the same voters
+  // Get active (voted) slots for ALL dates grouped by consecutive ranges with the same voters
   const groupedVotedSlots = useMemo(() => {
     const arr = [];
-    MINUTES_10.forEach(time => {
-      const cellKey = `${selectedDate}_${time}`;
-      const votes = calendarVotes[cellKey] || [];
+    Object.entries(calendarVotes).forEach(([cellKey, votes]) => {
+      const [date, time] = cellKey.split('_');
       if (votes.length > 0) {
-        arr.push({ time, votes, key: cellKey });
+        arr.push({ date, time, votes, key: cellKey });
       }
     });
-    arr.sort((a, b) => a.time.localeCompare(b.time));
+
+    arr.sort((a, b) => {
+      const dateCompare = a.date.localeCompare(b.date);
+      if (dateCompare !== 0) return dateCompare;
+      return a.time.localeCompare(b.time);
+    });
 
     if (arr.length === 0) return [];
 
@@ -70,6 +74,7 @@ const CalendarTab = ({ setActiveTab }) => {
     arr.forEach(slot => {
       if (!currentGroup) {
         currentGroup = {
+          date: slot.date,
           startTime: slot.time,
           endTime: slot.time,
           votes: slot.votes,
@@ -79,12 +84,13 @@ const CalendarTab = ({ setActiveTab }) => {
         const prevMinutes = getMinutes(currentGroup.endTime);
         const currMinutes = getMinutes(slot.time);
         
-        if (currMinutes - prevMinutes === 10 && areVotesEqual(currentGroup.votes, slot.votes)) {
+        if (slot.date === currentGroup.date && currMinutes - prevMinutes === 10 && areVotesEqual(currentGroup.votes, slot.votes)) {
           currentGroup.endTime = slot.time;
           currentGroup.keys.push(slot.key);
         } else {
           groups.push(currentGroup);
           currentGroup = {
+            date: slot.date,
             startTime: slot.time,
             endTime: slot.time,
             votes: slot.votes,
@@ -98,7 +104,19 @@ const CalendarTab = ({ setActiveTab }) => {
     }
 
     return groups;
-  }, [selectedDate, calendarVotes]);
+  }, [calendarVotes]);
+
+  // Group the voted ranges by date (chronologically)
+  const groupedByDate = useMemo(() => {
+    const map = {};
+    groupedVotedSlots.forEach(slot => {
+      if (!map[slot.date]) {
+        map[slot.date] = [];
+      }
+      map[slot.date].push(slot);
+    });
+    return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [groupedVotedSlots]);
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragMode, setDragMode] = useState(null); // 'add' or 'remove'
@@ -642,94 +660,121 @@ const CalendarTab = ({ setActiveTab }) => {
           {/* Voted chips panel */}
           <div className="flex-1 flex flex-col justify-start overflow-hidden">
             <div className="flex items-center justify-between mb-1.5 shrink-0">
-              <span className="text-[10px] font-bold text-slate-400">투표 현황 (선택된 일자)</span>
+              <span className="text-[10px] font-bold text-slate-400">전체 투표 현황 (모든 일자)</span>
               <button
                 type="button"
                 onClick={() => {
                   if (!currentUser) return;
-                  const timeKeys = MINUTES_10.map(time => `${selectedDate}_${time}`);
-                  toggleTimeVotes(timeKeys, false);
+                  if (window.confirm("내가 투표한 모든 날짜와 시간의 투표를 비우시겠습니까?")) {
+                    const myKeys = [];
+                    Object.entries(calendarVotes).forEach(([key, votes]) => {
+                      if (votes.includes(currentUser.id)) {
+                        myKeys.push(key);
+                      }
+                    });
+                    toggleTimeVotes(myKeys, false);
+                  }
                 }}
                 className="px-2 py-0.5 bg-rose-50 border border-rose-200 hover:bg-rose-100 hover:text-rose-600 active:scale-95 rounded-lg text-[9px] font-black text-rose-500 transition-all cursor-pointer"
-                title="이 날의 투표 모두 해제"
+                title="내가 투표한 모든 일정 비우기"
               >
-                🧹 비우기
+                🧹 전체 비우기
               </button>
             </div>
-            {groupedVotedSlots.length === 0 ? (
+            {groupedByDate.length === 0 ? (
               <div className="bg-slate-50/50 border border-dashed border-slate-200 rounded-xl p-4 text-center text-xs text-slate-400 font-semibold leading-relaxed my-auto">
                 아직 투표된 시간대가 없습니다.<br />
-                위의 다이얼을 굴려 시간을 선택해 보세요!
+                위의 달력과 다이얼을 통해 투표해 보세요!
               </div>
             ) : (
-              <div className="space-y-1.5 overflow-y-auto max-h-[140px] pr-1 scrollbar-thin">
-                {groupedVotedSlots.map(({ startTime, endTime, votes, keys }) => {
-                  const isUserVoted = currentUser ? votes.includes(currentUser.id) : false;
-                  const isBest = keys.some(k => bestCells.includes(k)) && maxVotes > 0;
-                  const rangeLabel = startTime === endTime 
-                    ? startTime 
-                    : (startTime === '00:00' && endTime === '23:50' 
-                      ? '하루 종일' 
-                      : (endTime === '23:50' ? `${startTime} 이후 ~` : `${startTime} ~ ${endTime}`));
+              <div className="space-y-3 overflow-y-auto max-h-[140px] pr-1 scrollbar-thin">
+                {groupedByDate.map(([date, slots], dateIdx) => {
+                  const dObj = new Date(date);
+                  const dateLabel = `${dObj.getMonth() + 1}월 ${dObj.getDate()}일 (${dObj.toLocaleDateString([], { weekday: 'short' })})`;
                   
                   return (
-                    <div
-                      key={startTime}
-                      onClick={() => {
-                        const [h, m] = startTime.split(':');
-                        setPickerHour(h);
-                        setPickerMinute(m);
-                      }}
-                      className={`flex items-center justify-between p-2 rounded-xl border select-none transition-all cursor-pointer ${
-                        isUserVoted
-                          ? 'bg-[#C00A4A]/5 border-[#C00A4A]/25'
-                          : 'bg-white border-slate-100 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <span className={`text-xs font-mono font-bold ${isUserVoted ? 'text-[#C00A4A]' : 'text-slate-700'}`}>
-                          {rangeLabel}
-                        </span>
-                        {isBest && (
-                          <span className="text-[8px] font-extrabold bg-[#C00A4A] text-white px-1 py-0.5 rounded leading-none">
-                            Best
-                          </span>
-                        )}
+                    <div key={date} className={`space-y-1.5 ${dateIdx > 0 ? 'pt-2.5 border-t border-slate-100' : ''}`}>
+                      {/* Date Group Badge */}
+                      <div className="text-[9px] font-black text-[#C00A4A] bg-[#C00A4A]/5 px-2 py-0.5 rounded-lg w-fit flex items-center gap-1 select-none border border-[#C00A4A]/10">
+                        <span>📅</span>
+                        <span>{dateLabel}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {isUserVoted && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleTimeVotes(keys, false);
-                            }}
-                            className="p-1 hover:bg-rose-100/80 rounded-lg text-rose-500 transition-colors cursor-pointer shrink-0"
-                            title="내 투표 삭제"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                        <div className="flex -space-x-1 overflow-hidden">
-                          {votes.slice(0, 3).map((vId) => (
+                      
+                      {/* Time Slots under this Date */}
+                      <div className="space-y-1">
+                        {slots.map(({ startTime, endTime, votes, keys }) => {
+                          const isUserVoted = currentUser ? votes.includes(currentUser.id) : false;
+                          const isBest = keys.some(k => bestCells.includes(k)) && maxVotes > 0;
+                          
+                          const rangeLabel = startTime === endTime 
+                            ? startTime 
+                            : (startTime === '00:00' && endTime === '23:50' 
+                              ? '하루 종일' 
+                              : (endTime === '23:50' ? `${startTime} 이후 ~` : `${startTime} ~ ${endTime}`));
+                          
+                          return (
                             <div
-                              key={vId}
-                              className="w-4 h-4 rounded-full border border-white flex items-center justify-center text-[8px]"
-                              style={{ backgroundColor: getParticipantColor(vId) }}
-                              title={getParticipantName(vId)}
+                              key={`${date}_${startTime}`}
+                              onClick={() => {
+                                setSelectedDate(date);
+                                const [h, m] = startTime.split(':');
+                                setPickerHour(h);
+                                setPickerMinute(m);
+                              }}
+                              className={`flex items-center justify-between p-2 rounded-xl border select-none transition-all cursor-pointer ${
+                                isUserVoted
+                                  ? 'bg-[#C00A4A]/5 border-[#C00A4A]/25'
+                                  : 'bg-white border-slate-100 hover:bg-slate-50'
+                              }`}
                             >
-                              {getParticipantEmoji(vId)}
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-xs font-mono font-bold ${isUserVoted ? 'text-[#C00A4A]' : 'text-slate-700'}`}>
+                                  {rangeLabel}
+                                </span>
+                                {isBest && (
+                                  <span className="text-[8px] font-extrabold bg-[#C00A4A] text-white px-1 py-0.5 rounded leading-none">
+                                    Best
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {isUserVoted && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleTimeVotes(keys, false);
+                                    }}
+                                    className="p-1 hover:bg-rose-100/80 rounded-lg text-rose-500 transition-colors cursor-pointer shrink-0"
+                                    title="내 투표 삭제"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                                <div className="flex -space-x-1 overflow-hidden">
+                                  {votes.slice(0, 3).map((vId) => (
+                                    <div
+                                      key={vId}
+                                      className="w-4 h-4 rounded-full border border-white flex items-center justify-center text-[8px]"
+                                      style={{ backgroundColor: getParticipantColor(vId) }}
+                                      title={getParticipantName(vId)}
+                                    >
+                                      {getParticipantEmoji(vId)}
+                                    </div>
+                                  ))}
+                                  {votes.length > 3 && (
+                                    <div className="w-4 h-4 rounded-full bg-slate-200 border border-white flex items-center justify-center text-[7px] font-extrabold text-slate-600">
+                                      +{votes.length - 3}
+                                    </div>
+                                  )}
+                                </div>
+                                <span className={`text-[10px] font-bold ${isUserVoted ? 'text-[#C00A4A]' : 'text-slate-400'}`}>
+                                  {participants.length > 0 ? Math.round((votes.length / participants.length) * 100) : 0}%
+                                </span>
+                              </div>
                             </div>
-                          ))}
-                          {votes.length > 3 && (
-                            <div className="w-4 h-4 rounded-full bg-slate-200 border border-white flex items-center justify-center text-[7px] font-extrabold text-slate-600">
-                              +{votes.length - 3}
-                            </div>
-                          )}
-                        </div>
-                        <span className={`text-[10px] font-bold ${isUserVoted ? 'text-[#C00A4A]' : 'text-slate-400'}`}>
-                          {participants.length > 0 ? Math.round((votes.length / participants.length) * 100) : 0}%
-                        </span>
+                          );
+                        })}
                       </div>
                     </div>
                   );

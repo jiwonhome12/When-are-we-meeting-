@@ -162,6 +162,10 @@ const LocationTab = () => {
       const emoji = proposer ? proposer.emoji : '👤';
       const name = proposer ? proposer.name : '참여자';
 
+      const detailLink = loc.placeUrl 
+        ? `<div style="margin-top:4px; border-top:1px dashed #f1f5f9; padding-top:4px; text-align:right;"><a href="${loc.placeUrl}" target="_blank" style="color:#C00A4A; font-weight:bold; text-decoration:none; font-size:8px;">🔗 상세보기</a></div>` 
+        : '';
+
       const iwContent = `
         <div style="padding:6px 8px; font-family:sans-serif; font-size:10px; border-radius:10px; background:#fff; border:1px solid #cbd5e1; min-width:120px; box-shadow:0 2px 4px rgba(0,0,0,0.06); text-align:left;">
           <div style="font-weight:bold; color:#0f172a; margin-bottom:2px;">📍 ${loc.name}</div>
@@ -169,6 +173,7 @@ const LocationTab = () => {
             <span>제안: ${emoji} ${name}</span>
             <span style="color:#C00A4A; font-weight:bold; margin-left:auto;">✓ ${loc.votes.length}명</span>
           </div>
+          ${detailLink}
         </div>
       `;
 
@@ -487,7 +492,19 @@ const LocationTab = () => {
       {selectedLatLng && (
         <div className="p-4 bg-[#C00A4A]/5 border border-[#C00A4A]/25 rounded-2xl animate-fade-in space-y-2.5 shadow-sm">
           <div className="flex justify-between items-center select-none">
-            <span className="text-[10px] font-extrabold text-[#C00A4A] tracking-wider uppercase">📍 지도 선택 위치</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-extrabold text-[#C00A4A] tracking-wider uppercase">📍 지도 선택 위치</span>
+              {tempPlaceUrl && (
+                <a
+                  href={tempPlaceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[9.5px] font-extrabold text-slate-500 hover:text-slate-800 hover:underline"
+                >
+                  상세보기 🔗
+                </a>
+              )}
+            </div>
             <button 
               type="button" 
               onClick={() => {

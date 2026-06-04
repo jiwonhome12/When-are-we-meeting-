@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useRoom } from '../context/RoomContext';
 import { Award, Calendar, MapPin, Clock, Download, ChevronRight, UserCheck, ShieldAlert, Sparkles, RefreshCw, FileText, Undo2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 
 const HOURS = Array.from({ length: 144 }, (_, i) => {
   const h = Math.floor(i / 6);
@@ -56,6 +56,78 @@ const WrapupTab = () => {
 
   const receiptRef = useRef(null);
 
+  // Auto-download receipt image and PDF once finalized
+  React.useEffect(() => {
+    if (roomInfo?.step === 'wrapup' && roomInfo?.finalYaksok) {
+      const storageKey = `auto_download_${roomInfo.code}`;
+      const alreadyDownloaded = sessionStorage.getItem(storageKey);
+      
+      if (!alreadyDownloaded) {
+        sessionStorage.setItem(storageKey, 'true');
+        
+        // Wait for rendering to complete before capture
+        setTimeout(() => {
+          // Trigger PNG
+          const oldImageState = isDownloadingImage;
+          html2canvas(receiptRef.current, {
+            backgroundColor: null,
+            scale: 1.5,
+            logging: false,
+            useCORS: true,
+            allowTaint: true
+          }).then(canvas => {
+            try {
+              const imgDataUrl = canvas.toDataURL('image/png');
+              if (imgDataUrl && imgDataUrl !== 'data:,') {
+                const link = document.createElement('a');
+                link.download = `baro_yaksok_${roomInfo.code}.png`;
+                link.href = imgDataUrl;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setDownloadedImgUrl(imgDataUrl);
+              }
+            } catch (e) {
+              console.error("Auto PNG failed", e);
+            }
+          }).catch(e => console.error(e));
+
+          // Trigger PDF with a small delay
+          setTimeout(() => {
+            try {
+              let ResolvedjsPDF = jsPDF;
+              if (typeof ResolvedjsPDF !== 'function' && ResolvedjsPDF.jsPDF) {
+                ResolvedjsPDF = ResolvedjsPDF.jsPDF;
+              }
+              html2canvas(receiptRef.current, {
+                backgroundColor: null,
+                scale: 1.5,
+                logging: false,
+                useCORS: true,
+                allowTaint: true
+              }).then(canvas => {
+                try {
+                  const imgData = canvas.toDataURL('image/png');
+                  if (imgData && imgData !== 'data:,') {
+                    const imgWidthPt = canvas.width * 0.75;
+                    const imgHeightPt = canvas.height * 0.75;
+                    const pdf = new ResolvedjsPDF('p', 'pt', [imgWidthPt, imgHeightPt]);
+                    pdf.addImage(imgData, 'PNG', 0, 0, imgWidthPt, imgHeightPt);
+                    pdf.save(`baro_yaksok_${roomInfo.code}.pdf`);
+                  }
+                } catch (e) {
+                  console.error("Auto PDF failed", e);
+                }
+              }).catch(e => console.error(e));
+            } catch (e) {
+              console.error(e);
+            }
+          }, 1200);
+        }, 1800);
+      }
+    }
+  }, [roomInfo?.step, roomInfo?.finalYaksok]);
+
   // Initialize values based on rouletteResult
   const getInitialDayKey = () => {
     if (rouletteResult && rouletteResult.type === 'time' && rouletteResult.winners && rouletteResult.winners.length > 0) {
@@ -85,7 +157,8 @@ const WrapupTab = () => {
   const [selectedHour, setSelectedHour] = useState(getInitialHour);
   const [selectedLocId, setSelectedLocId] = useState(getInitialLocId);
   const [customLocName, setCustomLocName] = useState('');
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [isDownloadingImage, setIsDownloadingImage] = useState(false);
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
   const [downloadedImgUrl, setDownloadedImgUrl] = useState(null);
 
   // Synchronize selections with rouletteResult or default lists when they load
@@ -123,88 +196,106 @@ const WrapupTab = () => {
     const day = DAYS.find(d => d.key === activeDayKey);
     const finalDateStr = day ? `${day.label}일 (${day.dayOfWeek})` : '미정';
 
+    let finalPlaceUrl = '';
+    if (selectedLocId !== 'custom') {
+      const loc = locations.find(l => l.id === selectedLocId);
+      finalPlaceUrl = loc ? loc.placeUrl : '';
+    }
     finalizeYaksok({
       date: finalDateStr,
       time: selectedHour,
-      location: finalLocName
+      location: finalLocName,
+      placeUrl: finalPlaceUrl
     });
   };
 
   const handleDownloadReceipt = () => {
-    if (!receiptRef.current || isDownloading) return;
-    setIsDownloading(true);
+    if (!receiptRef.current || isDownloadingImage) return;
+    setIsDownloadingImage(true);
 
-    // Render receipt element into canvas and save it
+    // Use scale: 1.5 to keep it crisp but safe on mobile canvas size limits
     html2canvas(receiptRef.current, {
-      backgroundColor: '#f8fafc',
-      scale: 2, // High resolution
+      backgroundColor: null,
+      scale: 1.5,
       logging: false,
-      useCORS: true
+      useCORS: true,
+      allowTaint: true
     }).then(canvas => {
-      const imgDataUrl = canvas.toDataURL('image/png');
-      
-      const link = document.createElement('a');
-      link.download = `baro_yaksok_${roomInfo.code}.png`;
-      link.href = imgDataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      try {
+        const imgDataUrl = canvas.toDataURL('image/png');
+        
+        if (!imgDataUrl || imgDataUrl === 'data:,') {
+          throw new Error('Canvas size exceeded limits or rendering returned empty image.');
+        }
 
-      // Open fallback preview modal
-      setDownloadedImgUrl(imgDataUrl);
-      setIsDownloading(false);
+        const link = document.createElement('a');
+        link.download = `baro_yaksok_${roomInfo.code}.png`;
+        link.href = imgDataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Open preview modal
+        setDownloadedImgUrl(imgDataUrl);
+        setIsDownloadingImage(false);
+      } catch (err) {
+        console.error("PNG save failed:", err);
+        alert("이미지 저장 중 오류가 발생했습니다: " + err.message);
+        setIsDownloadingImage(false);
+      }
     }).catch(err => {
-      console.error(err);
-      setIsDownloading(false);
+      console.error("HTML2Canvas render failed:", err);
+      alert("이미지 생성에 실패했습니다: " + err.message);
+      setIsDownloadingImage(false);
     });
   };
 
   const handleDownloadPDF = () => {
-    if (!receiptRef.current || isDownloading) return;
-    setIsDownloading(true);
+    if (!receiptRef.current || isDownloadingPDF) return;
+    setIsDownloadingPDF(true);
 
     try {
-      // In some bundle environments, jsPDF might be exposed on the default export or under a key
-      const ResolvedjsPDF = jsPDF.jsPDF || jsPDF;
+      let ResolvedjsPDF = jsPDF;
+      if (typeof ResolvedjsPDF !== 'function' && ResolvedjsPDF.jsPDF) {
+        ResolvedjsPDF = ResolvedjsPDF.jsPDF;
+      }
       
       html2canvas(receiptRef.current, {
-        backgroundColor: '#f8fafc',
-        scale: 2, // High resolution
+        backgroundColor: null,
+        scale: 1.5,
         logging: false,
-        useCORS: true
+        useCORS: true,
+        allowTaint: true
       }).then(canvas => {
         try {
           const imgData = canvas.toDataURL('image/png');
           
-          // Calculate PDF dimensions based on A4 standard
-          const imgWidth = 210; // A4 width in mm
-          const pageHeight = 295; // A4 height in mm
-          const imgHeight = (canvas.height * imgWidth) / canvas.width;
-          
-          const pdf = new ResolvedjsPDF('p', 'mm', 'a4');
-          let position = 0;
-          
-          if (imgHeight < pageHeight) {
-            position = (pageHeight - imgHeight) / 2; // Center vertically
+          if (!imgData || imgData === 'data:,') {
+            throw new Error('Canvas size exceeded limits or rendering returned empty image.');
           }
+
+          // Crop PDF page dimensions to match the receipt image exactly
+          const imgWidthPt = canvas.width * 0.75;
+          const imgHeightPt = canvas.height * 0.75;
           
-          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+          const pdf = new ResolvedjsPDF('p', 'pt', [imgWidthPt, imgHeightPt]);
+          pdf.addImage(imgData, 'PNG', 0, 0, imgWidthPt, imgHeightPt);
           pdf.save(`baro_yaksok_${roomInfo.code}.pdf`);
-          setIsDownloading(false);
+          setIsDownloadingPDF(false);
         } catch (innerErr) {
-          console.error("PDF constructor or image mapping failed:", innerErr);
-          alert("PDF 인코딩 및 저장 중 오류가 발생했습니다: " + innerErr.message);
-          setIsDownloading(false);
+          console.error("PDF generation inside canvas promise failed:", innerErr);
+          alert("PDF 저장 중 오류가 발생했습니다: " + innerErr.message);
+          setIsDownloadingPDF(false);
         }
       }).catch(err => {
-        console.error("HTML2Canvas rendering failed:", err);
-        alert("이미지 캔버스 렌더링에 실패했습니다: " + err.message);
-        setIsDownloading(false);
+        console.error("HTML2Canvas render for PDF failed:", err);
+        alert("PDF용 이미지 생성에 실패했습니다: " + err.message);
+        setIsDownloadingPDF(false);
       });
     } catch (err) {
       console.error("PDF Library initialization failed:", err);
-      alert("PDF 라이브러리를 초기화하지 못했습니다: " + err.message);
-      setIsDownloading(false);
+      alert("PDF 라이브러리 로드 중 오류가 발생했습니다: " + err.message);
+      setIsDownloadingPDF(false);
     }
   };
 
@@ -402,7 +493,19 @@ const WrapupTab = () => {
             </div>
             <div>
               <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block">FINAL LOCATION</span>
-              <span className="text-xs font-extrabold text-slate-800">{receipt.location}</span>
+              <span className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
+                {receipt.location}
+                {receipt.placeUrl && (
+                  <a
+                    href={receipt.placeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[9px] font-extrabold text-[#C00A4A] hover:underline"
+                  >
+                    상세보기 🔗
+                  </a>
+                )}
+              </span>
             </div>
           </div>
 
@@ -450,10 +553,10 @@ const WrapupTab = () => {
       <div className="w-full max-w-[280px] space-y-2">
         <button
           onClick={handleDownloadReceipt}
-          disabled={isDownloading}
+          disabled={isDownloadingImage}
           className="w-full py-3.5 bg-[#C00A4A] hover:bg-[#a3083e] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg shadow-pink-900/10 active:scale-95 transition-all cursor-pointer"
         >
-          {isDownloading ? (
+          {isDownloadingImage ? (
             <>
               <RefreshCw className="w-4 h-4 animate-spin" />
               이미지 변환 중...
@@ -468,10 +571,10 @@ const WrapupTab = () => {
 
         <button
           onClick={handleDownloadPDF}
-          disabled={isDownloading}
+          disabled={isDownloadingPDF}
           className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all cursor-pointer"
         >
-          {isDownloading ? (
+          {isDownloadingPDF ? (
             <>
               <RefreshCw className="w-4 h-4 animate-spin" />
               PDF 생성 중...

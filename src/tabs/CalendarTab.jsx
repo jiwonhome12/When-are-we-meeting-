@@ -531,6 +531,19 @@ const CalendarTab = ({ setActiveTab }) => {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
+                        {isUserVoted && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleTimeVotes([key], false);
+                            }}
+                            className="p-1 hover:bg-rose-100/80 rounded-lg text-rose-500 transition-colors cursor-pointer shrink-0"
+                            title="내 투표 삭제"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <div className="flex -space-x-1 overflow-hidden">
                           {votes.slice(0, 3).map((vId) => (
                             <div

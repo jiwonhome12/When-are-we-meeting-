@@ -483,6 +483,7 @@ export const RoomProvider = ({ children }) => {
         date: finalData.date || '미정',
         time: finalData.time || '미정',
         location: finalData.location || '미정',
+        placeUrl: finalData.placeUrl || '',
         attendees: participants.map(p => `${p.emoji} ${p.name}`),
         confirmedAt: new Date().toLocaleString()
       }

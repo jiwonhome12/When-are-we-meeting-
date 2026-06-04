@@ -25,7 +25,8 @@ const LocationTab = () => {
     currentUser, 
     locations, 
     addLocation, 
-    toggleLocationVote 
+    toggleLocationVote,
+    deleteLocation
   } = useRoom();
 
   const [activeCategory, setActiveCategory] = useState('🍖');
@@ -773,6 +774,19 @@ const LocationTab = () => {
                         >
                           상세보기 🔗
                         </a>
+                      )}
+                      {currentUser && loc.proposedBy === currentUser.id && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`'${loc.name}' 후보 장소를 삭제하시겠습니까?`)) {
+                              deleteLocation(loc.id);
+                            }
+                          }}
+                          className="text-[9px] font-extrabold text-slate-400 hover:text-rose-600 transition-colors ml-1.5 cursor-pointer"
+                        >
+                          삭제
+                        </button>
                       )}
                     </div>
                     <div className="flex items-center gap-1.5 text-[9px] text-slate-400">

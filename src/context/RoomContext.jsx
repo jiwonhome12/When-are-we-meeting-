@@ -366,6 +366,16 @@ export const RoomProvider = ({ children }) => {
     });
   };
 
+  // 6-2. 장소 삭제
+  const deleteLocation = (locId) => {
+    if (!currentUser) return;
+    setLocations(prev => {
+      const next = prev.filter(loc => loc.id !== locId);
+      broadcastState(getFullState({ locations: next }));
+      return next;
+    });
+  };
+
   // 6. 장소 투표/취소
   const toggleLocationVote = (locId) => {
     if (!currentUser) return;
@@ -607,6 +617,7 @@ export const RoomProvider = ({ children }) => {
       toggleTimeVotes,
       addLocation,
       toggleLocationVote,
+      deleteLocation,
       sendChatMessage,
       spinRoulette,
       finalizeYaksok,

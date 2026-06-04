@@ -155,6 +155,15 @@ export const RoomProvider = ({ children }) => {
           setIsSpinning(false);
           setRouletteResult(payload.result);
         }, 3000);
+      } else if (type === 'ROOM_EXPLODED') {
+        alert("방장에 의해 방이 폭파되었습니다.");
+        setRoomCode(null);
+        setRoomInfo(null);
+        setParticipants([]);
+        setCalendarVotes({});
+        setLocations([]);
+        setChatMessages([]);
+        setRouletteResult(null);
       }
     };
 
@@ -594,6 +603,32 @@ export const RoomProvider = ({ children }) => {
     setRouletteResult(null);
   };
 
+  // 10.5. 방 폭파하기
+  const explodeRoom = () => {
+    if (!currentUser || !roomCode) return;
+    
+    if (broadcastChannelRef.current) {
+      broadcastChannelRef.current.postMessage({
+        type: 'ROOM_EXPLODED',
+        roomCode
+      });
+    }
+
+    localStorage.removeItem(`room_db_${roomCode}`);
+
+    const activeRooms = JSON.parse(localStorage.getItem('baro_yaksok_active_rooms') || '[]');
+    const nextActive = activeRooms.filter(r => r.code !== roomCode);
+    localStorage.setItem('baro_yaksok_active_rooms', JSON.stringify(nextActive));
+
+    setRoomCode(null);
+    setRoomInfo(null);
+    setParticipants([]);
+    setCalendarVotes({});
+    setLocations([]);
+    setChatMessages([]);
+    setRouletteResult(null);
+  };
+
   // 11. 로그아웃 및 사용자 프로필 초기화
   const logoutUser = () => {
     sessionStorage.removeItem('baro_yaksok_user');
@@ -624,6 +659,7 @@ export const RoomProvider = ({ children }) => {
       reopenRoom,
       leaveRoom,
       logoutUser,
+      explodeRoom,
       updateStartDate,
       updateDateRange
     }}>

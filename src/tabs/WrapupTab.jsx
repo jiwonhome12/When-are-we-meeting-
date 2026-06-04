@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useRoom } from '../context/RoomContext';
 import { Award, Calendar, MapPin, Clock, Download, ChevronRight, UserCheck, ShieldAlert, Sparkles, RefreshCw, FileText, Undo2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
+import jsPDF from 'jspdf';
 
 const HOURS = Array.from({ length: 144 }, (_, i) => {
   const h = Math.floor(i / 6);
@@ -19,7 +19,8 @@ const WrapupTab = () => {
     rouletteResult,
     finalizeYaksok, 
     reopenRoom,
-    leaveRoom 
+    leaveRoom,
+    explodeRoom
   } = useRoom();
 
   const isHost = currentUser?.isHost;
@@ -162,33 +163,49 @@ const WrapupTab = () => {
     if (!receiptRef.current || isDownloading) return;
     setIsDownloading(true);
 
-    html2canvas(receiptRef.current, {
-      backgroundColor: '#f8fafc',
-      scale: 2, // High resolution
-      logging: false,
-      useCORS: true
-    }).then(canvas => {
-      const imgData = canvas.toDataURL('image/png');
+    try {
+      // In some bundle environments, jsPDF might be exposed on the default export or under a key
+      const ResolvedjsPDF = jsPDF.jsPDF || jsPDF;
       
-      // Calculate PDF dimensions based on A4 standard
-      const imgWidth = 210; // A4 width in mm
-      const pageHeight = 295; // A4 height in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      let position = 0;
-      
-      if (imgHeight < pageHeight) {
-        position = (pageHeight - imgHeight) / 2; // Center vertically
-      }
-      
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      pdf.save(`baro_yaksok_${roomInfo.code}.pdf`);
+      html2canvas(receiptRef.current, {
+        backgroundColor: '#f8fafc',
+        scale: 2, // High resolution
+        logging: false,
+        useCORS: true
+      }).then(canvas => {
+        try {
+          const imgData = canvas.toDataURL('image/png');
+          
+          // Calculate PDF dimensions based on A4 standard
+          const imgWidth = 210; // A4 width in mm
+          const pageHeight = 295; // A4 height in mm
+          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+          
+          const pdf = new ResolvedjsPDF('p', 'mm', 'a4');
+          let position = 0;
+          
+          if (imgHeight < pageHeight) {
+            position = (pageHeight - imgHeight) / 2; // Center vertically
+          }
+          
+          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+          pdf.save(`baro_yaksok_${roomInfo.code}.pdf`);
+          setIsDownloading(false);
+        } catch (innerErr) {
+          console.error("PDF constructor or image mapping failed:", innerErr);
+          alert("PDF 인코딩 및 저장 중 오류가 발생했습니다: " + innerErr.message);
+          setIsDownloading(false);
+        }
+      }).catch(err => {
+        console.error("HTML2Canvas rendering failed:", err);
+        alert("이미지 캔버스 렌더링에 실패했습니다: " + err.message);
+        setIsDownloading(false);
+      });
+    } catch (err) {
+      console.error("PDF Library initialization failed:", err);
+      alert("PDF 라이브러리를 초기화하지 못했습니다: " + err.message);
       setIsDownloading(false);
-    }).catch(err => {
-      console.error("PDF generation failed:", err);
-      setIsDownloading(false);
-    });
+    }
   };
 
   // 1. Render setup screen if room is not wrapup
@@ -292,6 +309,18 @@ const WrapupTab = () => {
             >
               <Award className="w-5 h-5 animate-pulse" />
               최종 영수증 발행하기 (마감)
+            </button>
+
+            <button
+              onClick={() => {
+                if (window.confirm("방을 폭파하시겠습니까? 모든 정보가 영구 삭제됩니다.")) {
+                  explodeRoom();
+                }
+              }}
+              type="button"
+              className="w-full py-2.5 bg-rose-50 hover:bg-rose-100/70 text-red-600 border border-rose-100 rounded-2xl font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer text-xs"
+            >
+              💣 방 폭파하기
             </button>
           </div>
         ) : (
@@ -456,13 +485,26 @@ const WrapupTab = () => {
         </button>
 
         {isHost && (
-          <button
-            onClick={reopenRoom}
-            className="w-full py-3 bg-rose-50 hover:bg-rose-100/80 text-[#C00A4A] border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
-          >
-            <Undo2 className="w-4 h-4" />
-            약속 조율 수정하기 (마감 취소)
-          </button>
+          <div className="flex flex-col gap-2 w-full">
+            <button
+              onClick={reopenRoom}
+              className="w-full py-3 bg-rose-50 hover:bg-rose-100/80 text-[#C00A4A] border border-rose-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+            >
+              <Undo2 className="w-4 h-4" />
+              약속 조율 수정하기 (마감 취소)
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm("방을 폭파하시겠습니까? 모든 정보가 영구 삭제됩니다.")) {
+                  explodeRoom();
+                }
+              }}
+              type="button"
+              className="w-full py-2.5 bg-rose-50 hover:bg-rose-100/70 text-red-600 border border-rose-100 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+            >
+              💣 방 폭파하기
+            </button>
+          </div>
         )}
 
         <button

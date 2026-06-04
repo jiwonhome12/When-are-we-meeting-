@@ -16,6 +16,39 @@
     <script src="https://developers.kakao.com/sdk/js/kakao.min.js"></script>
     <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=a7ebbfa117de429657367c9dfa9061bd&libraries=services&autoload=false"></script>
     
+    <!-- Security Script: Block F12, Right Click, and hide API Key from DOM -->
+    <script>
+      // Block F12 and Developer Tools keyboard shortcuts
+      document.addEventListener('keydown', function(e) {
+        if (
+          e.key === 'F12' ||
+          (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) ||
+          (e.ctrlKey && (e.key === 'U' || e.key === 'u'))
+        ) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }, true);
+
+      // Block Right Click Context Menu
+      document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+      }, true);
+
+      // Remove the script elements containing API keys from the DOM after initialization
+      window.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+          var scripts = document.getElementsByTagName('script');
+          for (var i = scripts.length - 1; i >= 0; i--) {
+            var src = scripts[i].src;
+            if (src && (src.indexOf('dapi.kakao.com') !== -1 || src.indexOf('developers.kakao.com') !== -1)) {
+              scripts[i].parentNode.removeChild(scripts[i]);
+            }
+          }
+        }, 1500); // 1.5 seconds delay to ensure Kakao SDK & Map API fully run load callbacks
+      });
+    </script>
+    
     <!-- 🔑 Google Identity Services SDK -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>

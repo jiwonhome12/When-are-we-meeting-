@@ -36,12 +36,14 @@ const RoomContainer = () => {
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [shouldShake, setShouldShake] = useState(false);
+  const lastShakenMsgIdRef = React.useRef(null);
 
   // Trigger screen shake when nudge bomb is received
   useEffect(() => {
     if (chatMessages && chatMessages.length > 0) {
       const lastMsg = chatMessages[chatMessages.length - 1];
-      if (lastMsg.type === 'bomb') {
+      if (lastMsg.type === 'bomb' && lastShakenMsgIdRef.current !== lastMsg.id && activeTab === 'chat') {
+        lastShakenMsgIdRef.current = lastMsg.id;
         setShouldShake(true);
         if (navigator.vibrate) {
           navigator.vibrate([150, 100, 150]); // premium vibration pattern
@@ -50,7 +52,7 @@ const RoomContainer = () => {
         return () => clearTimeout(timer);
       }
     }
-  }, [chatMessages]);
+  }, [chatMessages, activeTab]);
 
   // Initialize Kakao SDK
   useEffect(() => {

@@ -400,9 +400,10 @@ const LocationTab = () => {
           const distNum = parseInt(item.distance);
           const distanceStr = distNum >= 1000 ? `${(distNum / 1000).toFixed(1)}km` : `${distNum}m`;
           return {
+            id: item.id,
             name: item.place_name,
             address: item.road_address_name || item.address_name,
-            rating: (4.5 + (parseInt(item.id) % 5) * 0.1).toFixed(1),
+            rating: (4.5 + (parseInt(item.id) % 5) * 0.1).toFixed(1), // Placeholder rating
             distance: distanceStr,
             x: item.x,
             y: item.y,
@@ -410,10 +411,27 @@ const LocationTab = () => {
           };
         });
         setDynamicRecommendations(formatted);
+
+        // Fetch actual ratings asynchronously
+        formatted.forEach(async (item) => {
+          try {
+            const response = await fetch(`/kakao-place-api/places/panel3/${item.id}`);
+            if (response.ok) {
+              const resData = await response.json();
+              const ratingVal = resData.summary?.star_rating || (resData.summary?.scoresum && resData.summary?.scorecnt ? (resData.summary.scoresum / resData.summary.scorecnt) : null);
+              if (ratingVal !== undefined && ratingVal !== null) {
+                setDynamicRecommendations(prev => prev.map(p => p.id === item.id ? { ...p, rating: parseFloat(ratingVal).toFixed(1) } : p));
+              }
+            }
+          } catch (err) {
+            console.warn("Failed to fetch rating for place:", item.id, err);
+          }
+        });
       } else {
         // Fallback
         const mockList = (MOCK_RECOMMENDATIONS[activeCategory] || []).map(item => ({
           ...item,
+          id: `mock_${Math.random()}`,
           x: '126.9273',
           y: '37.5563'
         }));

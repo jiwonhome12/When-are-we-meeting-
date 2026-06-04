@@ -169,8 +169,12 @@ export const RoomProvider = ({ children }) => {
           setRouletteResult(payload.result);
         }, 3000);
       } else if (type === 'ROOM_EXPLODED') {
-        alert("방장에 의해 방이 폭파되었습니다.");
-        setRoomCode(null);
+        setRoomCode(prevCode => {
+          if (prevCode) {
+            alert("방장에 의해 방이 폭파되었습니다.");
+          }
+          return null;
+        });
         setRoomInfo(null);
         setParticipants([]);
         setCalendarVotes({});

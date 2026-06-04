@@ -162,34 +162,6 @@ const WrapupTab = () => {
   const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
   const [downloadedImgUrl, setDownloadedImgUrl] = useState(null);
 
-  // Synchronize selections with rouletteResult or default lists when they load
-  React.useEffect(() => {
-    if (rouletteResult) {
-      if (rouletteResult.type === 'time' && rouletteResult.winners && rouletteResult.winners.length > 0) {
-        const parts = rouletteResult.winners[0].id.split('_');
-        if (parts[0]) setSelectedDayKey(parts[0]);
-        if (parts[1]) setSelectedHour(parts[1]);
-      }
-      if (rouletteResult.type === 'location' && rouletteResult.winners && rouletteResult.winners.length > 0) {
-        setSelectedLocId(rouletteResult.winners[0].id);
-      }
-    } else {
-      if (DAYS.length > 0 && !selectedDayKey) {
-        setSelectedDayKey(DAYS[0].key);
-      }
-      if (locations.length > 0 && !selectedLocId) {
-        setSelectedLocId(locations[0].id);
-      }
-    }
-  }, [rouletteResult, DAYS.length, locations.length]);
-
-  // Auto-select the top voted time slot for the selected day
-  React.useEffect(() => {
-    if (rankedTimes.length > 0) {
-      setSelectedHour(rankedTimes[0].time);
-    }
-  }, [activeDayKey, rankedTimes]);
-
   const activeDayKey = selectedDayKey || DAYS[0]?.key || '';
 
   // Sort and rank time slots based on votes count (supporting ties)
@@ -197,7 +169,7 @@ const WrapupTab = () => {
     const votedList = [];
     HOURS.forEach(time => {
       const cellKey = `${activeDayKey}_${time}`;
-      const votes = calendarVotes[cellKey] || [];
+      const votes = (calendarVotes || {})[cellKey] || [];
       if (votes.length > 0) {
         votedList.push({ time, votesCount: votes.length });
       }
@@ -228,25 +200,53 @@ const WrapupTab = () => {
 
   // Sort and rank locations based on votes count (supporting ties)
   const rankedLocations = React.useMemo(() => {
-    const list = [...locations];
-    list.sort((a, b) => b.votes.length - a.votes.length);
+    const list = [...(locations || [])];
+    list.sort((a, b) => ((b.votes || []).length) - ((a.votes || []).length));
     
     const ranked = [];
     let currentRank = 1;
     let prevVotesCount = -1;
     
     list.forEach((item, index) => {
-      if (prevVotesCount !== -1 && item.votes.length < prevVotesCount) {
+      if (prevVotesCount !== -1 && (item.votes || []).length < prevVotesCount) {
         currentRank = index + 1;
       }
       ranked.push({
         ...item,
         rank: currentRank
       });
-      prevVotesCount = item.votes.length;
+      prevVotesCount = (item.votes || []).length;
     });
     return ranked;
   }, [locations]);
+
+  // Synchronize selections with rouletteResult or default lists when they load
+  React.useEffect(() => {
+    if (rouletteResult) {
+      if (rouletteResult.type === 'time' && rouletteResult.winners && rouletteResult.winners.length > 0) {
+        const parts = rouletteResult.winners[0].id.split('_');
+        if (parts[0]) setSelectedDayKey(parts[0]);
+        if (parts[1]) setSelectedHour(parts[1]);
+      }
+      if (rouletteResult.type === 'location' && rouletteResult.winners && rouletteResult.winners.length > 0) {
+        setSelectedLocId(rouletteResult.winners[0].id);
+      }
+    } else {
+      if (DAYS.length > 0 && !selectedDayKey) {
+        setSelectedDayKey(DAYS[0].key);
+      }
+      if ((locations || []).length > 0 && !selectedLocId) {
+        setSelectedLocId(locations[0].id);
+      }
+    }
+  }, [rouletteResult, DAYS.length, (locations || []).length]);
+
+  // Auto-select the top voted time slot for the selected day
+  React.useEffect(() => {
+    if (rankedTimes.length > 0) {
+      setSelectedHour(rankedTimes[0].time);
+    }
+  }, [activeDayKey, rankedTimes]);
 
   const handleFinalize = () => {
     let finalLocName = '';

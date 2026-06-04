@@ -25,7 +25,13 @@ const ChatTab = ({ setActiveTab }) => {
     "💣 폭탄 배달 완료! (빨리 의견 내라냥🐾)"
   ];
 
+  const hasSentBomb = chatMessages ? chatMessages.some(msg => msg.senderId === currentUser?.id && msg.type === 'bomb') : false;
+
   const handleSendBomb = (text) => {
+    if (hasSentBomb) {
+      alert("폭탄은 방마다 한 번만 던질 수 있습니다!");
+      return;
+    }
     sendChatMessage(text, 'bomb');
     setShowBombDialog(false);
   };
@@ -377,9 +383,21 @@ const ChatTab = ({ setActiveTab }) => {
 
           <button
             type="button"
-            onClick={() => { setShowBombDialog(!showBombDialog); setShowShareDialog(false); }}
-            className="w-11.5 h-11.5 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-300 text-red-600 flex items-center justify-center shrink-0 transition-all cursor-pointer shadow-sm active:scale-95 text-lg"
-            title="약속 독촉 폭탄 던지기"
+            onClick={() => {
+              if (hasSentBomb) {
+                alert("폭탄은 이미 던지셨습니다! (한 번만 던질 수 있습니다)");
+                return;
+              }
+              setShowBombDialog(!showBombDialog); 
+              setShowShareDialog(false); 
+            }}
+            disabled={hasSentBomb}
+            className={`w-11.5 h-11.5 rounded-xl border flex items-center justify-center shrink-0 transition-all cursor-pointer shadow-sm active:scale-95 text-lg ${
+              hasSentBomb
+                ? 'bg-slate-100 text-slate-300 border-slate-200 cursor-not-allowed opacity-50'
+                : 'bg-red-50 hover:bg-red-100 border-red-200 hover:border-red-300 text-red-600'
+            }`}
+            title={hasSentBomb ? "폭탄 투하 완료" : "약속 독촉 폭탄 던지기"}
           >
             💣
           </button>

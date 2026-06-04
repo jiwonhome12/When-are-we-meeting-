@@ -316,33 +316,7 @@ const CalendarTab = ({ setActiveTab }) => {
         </div>
       </div>
 
-      {/* 📅 Best Time Highlight Card */}
-      {bestCells.length > 0 && maxVotes > 0 && (
-        <div className="glass-card p-4 rounded-2xl border border-[#C00A4A]/20 flex items-center justify-between shadow-md bg-white animate-fade-in-up">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#C00A4A]/10 text-[#C00A4A] flex items-center justify-center pulse-primary shrink-0">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-[10px] sm:text-xs font-bold text-[#C00A4A] uppercase tracking-wider block">💡 추천 시간 ({maxVotes}명 찬성)</span>
-              <h3 className="text-xs sm:text-sm font-extrabold text-slate-800 mt-0.5">
-                {bestCells.map(cell => {
-                  const [dayKey, hour] = cell.split('_');
-                  const d = new Date(dayKey);
-                  return `${d.getMonth() + 1}월 ${d.getDate()}일 (${d.toLocaleDateString([], { weekday: 'short' })}) ${hour}`;
-                }).join(', ')}
-              </h3>
-            </div>
-          </div>
-          <button
-            onClick={handleAnnounceBestTime}
-            className="px-3 py-1.5 bg-[#C00A4A] hover:bg-[#9e083d] text-white rounded-xl text-xs font-bold flex items-center gap-1 shadow-sm active:scale-95 transition-all cursor-pointer shrink-0"
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            알리기
-          </button>
-        </div>
-      )}
+
 
       {/* 📅 Calendar + Timeline Vertical Stack */}
       <div className="flex flex-col gap-4 w-full flex-1">

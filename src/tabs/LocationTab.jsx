@@ -40,6 +40,8 @@ const LocationTab = () => {
   const [tempComment, setTempComment] = useState('');
   const [tempCategory, setTempCategory] = useState('기타');
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [recommendationCenter, setRecommendationCenter] = useState(null);
+  const [dynamicRecommendations, setDynamicRecommendations] = useState([]);
 
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -67,6 +69,7 @@ const LocationTab = () => {
         };
         mapInstance = new window.kakao.maps.Map(container, options);
         mapRef.current = mapInstance;
+        setRecommendationCenter(options.center);
 
         const geocoder = new window.kakao.maps.services.Geocoder();
 
@@ -76,6 +79,7 @@ const LocationTab = () => {
           setSelectedLatLng(latlng);
           setTempComment(''); // Reset comment on new map click
           setTempCategory('기타');
+          setRecommendationCenter(latlng);
 
           // 클릭한 위치에 임시 마커 표시
           if (clickMarkerRef.current) {
@@ -239,6 +243,7 @@ const LocationTab = () => {
           setSelectedLatLng(latlng);
           setTempComment(''); // Reset comment on new geolocation pin
           setTempCategory('기타');
+          setRecommendationCenter(latlng);
           if (clickMarkerRef.current) {
             clickMarkerRef.current.setMap(null);
           }
@@ -349,41 +354,67 @@ const LocationTab = () => {
 
   const handleRecommend = (rec) => {
     if (!window.kakao || !window.kakao.maps) return;
-    const geocoder = new window.kakao.maps.services.Geocoder();
-    geocoder.addressSearch(rec.address, (result, status) => {
+    const latlng = new window.kakao.maps.LatLng(rec.y, rec.x);
+    const map = mapRef.current;
+    if (map) {
+      map.setCenter(latlng);
+      map.setLevel(3);
+      
+      setSelectedLatLng(latlng);
+      setSelectedAddress(rec.address);
+      setTempPlaceName(rec.name);
+      setTempComment('');
+      setTempCategory(activeCategory === '🍖' ? '맛집' : activeCategory === '☕' ? '카페' : '주차장');
+
+      if (clickMarkerRef.current) {
+        clickMarkerRef.current.setMap(null);
+      }
+
+      const tempMarker = new window.kakao.maps.Marker({
+        position: latlng,
+        map: map
+      });
+      clickMarkerRef.current = tempMarker;
+    }
+  };
+
+  useEffect(() => {
+    if (!mapLoaded || !window.kakao || !window.kakao.maps || !window.kakao.maps.services) return;
+
+    const center = recommendationCenter || new window.kakao.maps.LatLng(37.5563, 126.9273);
+    const ps = new window.kakao.maps.services.Places();
+    const categoryCode = activeCategory === '🍖' ? 'FD6' : activeCategory === '☕' ? 'CE7' : 'PK6';
+
+    ps.categorySearch(categoryCode, (data, status) => {
       if (status === window.kakao.maps.services.Status.OK) {
-        const latlng = new window.kakao.maps.LatLng(result[0].y, result[0].x);
-        const map = mapRef.current;
-        if (map) {
-          map.setCenter(latlng);
-          map.setLevel(3);
-          
-          setSelectedLatLng(latlng);
-          setSelectedAddress(rec.address);
-          setTempPlaceName(rec.name);
-          setTempComment('');
-          setTempCategory(activeCategory === '🍖' ? '맛집' : activeCategory === '☕' ? '카페' : '주차장');
-
-          if (clickMarkerRef.current) {
-            clickMarkerRef.current.setMap(null);
-          }
-
-          const tempMarker = new window.kakao.maps.Marker({
-            position: latlng,
-            map: map
-          });
-          clickMarkerRef.current = tempMarker;
-        }
+        const formatted = data.map(item => {
+          const distNum = parseInt(item.distance);
+          const distanceStr = distNum >= 1000 ? `${(distNum / 1000).toFixed(1)}km` : `${distNum}m`;
+          return {
+            name: item.place_name,
+            address: item.road_address_name || item.address_name,
+            rating: (4.5 + (parseInt(item.id) % 5) * 0.1).toFixed(1),
+            distance: distanceStr,
+            x: item.x,
+            y: item.y
+          };
+        });
+        setDynamicRecommendations(formatted);
       } else {
         // Fallback
-        setSelectedLatLng(new window.kakao.maps.LatLng(37.5563, 126.9273));
-        setSelectedAddress(rec.address);
-        setTempPlaceName(rec.name);
-        setTempComment('');
-        setTempCategory(activeCategory === '🍖' ? '맛집' : activeCategory === '☕' ? '카페' : '주차장');
+        const mockList = (MOCK_RECOMMENDATIONS[activeCategory] || []).map(item => ({
+          ...item,
+          x: '126.9273',
+          y: '37.5563'
+        }));
+        setDynamicRecommendations(mockList);
       }
+    }, {
+      location: center,
+      radius: 1000,
+      sort: window.kakao.maps.services.SortBy.DISTANCE
     });
-  };
+  }, [activeCategory, recommendationCenter, mapLoaded]);
 
   const handleAddCustom = (e) => {
     e.preventDefault();
@@ -430,7 +461,7 @@ const LocationTab = () => {
   };
 
   // List of recommendations filtered by search
-  const filteredRecs = (MOCK_RECOMMENDATIONS[activeCategory] || []).filter(item => 
+  const filteredRecs = dynamicRecommendations.filter(item => 
     item.name.includes(searchQuery) || item.address.includes(searchQuery)
   );
 

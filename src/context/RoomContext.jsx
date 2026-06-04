@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 const RoomContext = createContext(null);
 
@@ -92,9 +94,20 @@ export const RoomProvider = ({ children }) => {
     if (roomCode) {
       localStorage.setItem(`room_db_${roomCode}`, JSON.stringify(updatedData));
     }
+    // Sync with Firestore if configured
+    if (db && roomCode) {
+      try {
+        const docRef = doc(db, 'rooms', roomCode);
+        setDoc(docRef, updatedData, { merge: true }).catch(err => {
+          console.warn("Firestore sync failed:", err);
+        });
+      } catch (err) {
+        console.warn("Firestore sync error:", err);
+      }
+    }
   };
 
-  // Set up Broadcast Channel for real-time synchronization between tabs
+  // Set up Broadcast Channel & Firestore real-time snapshot sync
   useEffect(() => {
     if (!roomCode) {
       if (broadcastChannelRef.current) {
@@ -111,18 +124,18 @@ export const RoomProvider = ({ children }) => {
     // Load initial state from LocalStorage or mock DB
     const savedDb = localStorage.getItem(`room_db_${roomCode}`);
     if (savedDb) {
-      const db = JSON.parse(savedDb);
-      setRoomInfo(db.roomInfo || null);
-      setParticipants(db.participants || []);
-      setCalendarVotes(db.calendarVotes || {});
-      setLocations(db.locations || []);
-      setChatMessages(db.chatMessages || []);
-      setRouletteResult(db.rouletteResult || null);
+      const dbData = JSON.parse(savedDb);
+      setRoomInfo(dbData.roomInfo || null);
+      setParticipants(dbData.participants || []);
+      setCalendarVotes(dbData.calendarVotes || {});
+      setLocations(dbData.locations || []);
+      setChatMessages(dbData.chatMessages || []);
+      setRouletteResult(dbData.rouletteResult || null);
     }
 
-    // Listener for messages
+    // Listener for Broadcast Channel messages (Same-browser/Machine tabs fallback)
     channel.onmessage = (event) => {
-      const { type, payload, senderId } = event.data;
+      const { type, payload } = event.data;
       if (type === 'STATE_UPDATE') {
         setRoomInfo(payload.roomInfo);
         setParticipants(payload.participants);
@@ -131,7 +144,6 @@ export const RoomProvider = ({ children }) => {
         setChatMessages(payload.chatMessages);
         setRouletteResult(payload.rouletteResult);
       } else if (type === 'PING_REQUEST' && currentUser) {
-        // Someone entered, reply with current data to sync up
         channel.postMessage({
           type: 'PING_RESPONSE',
           payload: {
@@ -168,12 +180,41 @@ export const RoomProvider = ({ children }) => {
       }
     };
 
-    // Broadcast a PING to find existing peers and fetch state
     channel.postMessage({ type: 'PING_REQUEST' });
+
+    // Set up real-time listener for Firestore if configured
+    let unsubFirestore = null;
+    if (db) {
+      try {
+        const docRef = doc(db, 'rooms', roomCode);
+        unsubFirestore = onSnapshot(docRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.data();
+            if (data) {
+              setRoomInfo(data.roomInfo || null);
+              setParticipants(data.participants || []);
+              setCalendarVotes(data.calendarVotes || {});
+              setLocations(data.locations || []);
+              setChatMessages(data.chatMessages || []);
+              setRouletteResult(data.rouletteResult || null);
+              // Maintain local backup
+              localStorage.setItem(`room_db_${roomCode}`, JSON.stringify(data));
+            }
+          }
+        }, (err) => {
+          console.warn("Firestore listener error:", err);
+        });
+      } catch (err) {
+        console.warn("Firestore listener setup error:", err);
+      }
+    }
 
     return () => {
       channel.close();
       broadcastChannelRef.current = null;
+      if (unsubFirestore) {
+        unsubFirestore();
+      }
     };
   }, [roomCode]);
 

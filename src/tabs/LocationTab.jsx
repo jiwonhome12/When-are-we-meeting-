@@ -34,6 +34,7 @@ const LocationTab = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [sortBy, setSortBy] = useState('rating'); // 'rating' or 'distance'
 
   const [selectedLatLng, setSelectedLatLng] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState('');
@@ -471,8 +472,23 @@ const LocationTab = () => {
     return p ? p.emoji : '👤';
   };
 
+  // Sort recommendations by rating or distance
+  const sortedRecs = React.useMemo(() => {
+    let list = [...dynamicRecommendations];
+    if (sortBy === 'rating') {
+      list.sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
+    } else {
+      list.sort((a, b) => {
+        const distA = a.distance.endsWith('km') ? parseFloat(a.distance.replace('km', '')) * 1000 : parseInt(a.distance.replace('m', ''));
+        const distB = b.distance.endsWith('km') ? parseFloat(b.distance.replace('km', '')) * 1000 : parseInt(b.distance.replace('m', ''));
+        return distA - distB;
+      });
+    }
+    return list;
+  }, [dynamicRecommendations, sortBy]);
+
   // List of recommendations filtered by search
-  const filteredRecs = dynamicRecommendations.filter(item => 
+  const filteredRecs = sortedRecs.filter(item => 
     item.name.includes(searchQuery) || item.address.includes(searchQuery)
   );
 
@@ -622,12 +638,40 @@ const LocationTab = () => {
 
       {/* 🧭 Local Recommendation / Search Results Slider */}
       <div className="space-y-1.5">
-        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">
-          {searchResults.length > 0 
-            ? `🔍 키워드 검색 결과 (${searchResults.length}개 - 카드 터치시 해당 위치로 지도 이동)` 
-            : `💡 주변 ${activeCategory === '🍖' ? '맛집' : activeCategory === '☕' ? '카페' : '주차장'} 추천 (추가 시 투표 자동 적용)`
-          }
-        </h4>
+        <div className="flex items-center justify-between px-1">
+          <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            {searchResults.length > 0 
+              ? `🔍 키워드 검색 결과 (${searchResults.length}개 - 카드 터치시 해당 위치로 지도 이동)` 
+              : `💡 주변 ${activeCategory === '🍖' ? '맛집' : activeCategory === '☕' ? '카페' : '주차장'} 추천 (추가 시 투표 자동 적용)`
+            }
+          </h4>
+          {searchResults.length === 0 && (
+            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200/50">
+              <button
+                type="button"
+                onClick={() => setSortBy('rating')}
+                className={`px-1.5 py-0.5 rounded text-[9px] font-bold transition-all cursor-pointer ${
+                  sortBy === 'rating'
+                    ? 'bg-white text-[#C00A4A] shadow-sm'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                ★ 별점순
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortBy('distance')}
+                className={`px-1.5 py-0.5 rounded text-[9px] font-bold transition-all cursor-pointer ${
+                  sortBy === 'distance'
+                    ? 'bg-white text-[#C00A4A] shadow-sm'
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                📍 거리순
+              </button>
+            </div>
+          )}
+        </div>
         
         <div className="flex gap-3 overflow-x-auto py-1.5 scroll-smooth max-w-full">
           {searchResults.length > 0 ? (

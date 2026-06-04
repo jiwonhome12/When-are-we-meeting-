@@ -34,6 +34,7 @@ const CalendarTab = ({ setActiveTab }) => {
 
   const [pickerHour, setPickerHour] = useState('12');
   const [pickerMinute, setPickerMinute] = useState('00');
+  const [timeMode, setTimeMode] = useState('single'); // 'single' | 'onwards' | 'allday'
 
   const hourOptions = useMemo(() => Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')), []);
   const minuteOptions = useMemo(() => ['00', '10', '20', '30', '40', '50'], []);
@@ -416,86 +417,189 @@ const CalendarTab = ({ setActiveTab }) => {
             </h4>
           </div>
 
-          {/* Premium Birthdate-style Double Wheel Dial Picker */}
+          {/* ⚡ Time Mode Tabs */}
+          <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200/50 shrink-0">
+            <button
+              type="button"
+              onClick={() => setTimeMode('single')}
+              className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer text-center ${
+                timeMode === 'single'
+                  ? 'bg-white text-[#C00A4A] shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              ⏱️ 지정 시간
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimeMode('onwards')}
+              className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer text-center ${
+                timeMode === 'onwards'
+                  ? 'bg-white text-[#C00A4A] shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              ⏳ 이후 시간대
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimeMode('allday')}
+              className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer text-center ${
+                timeMode === 'allday'
+                  ? 'bg-white text-[#C00A4A] shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              ☀️ 하루 종일
+            </button>
+          </div>
+
+          {/* Premium Birthdate-style Double Wheel Dial Picker / Mode Illustration */}
           <div className="flex flex-col gap-3 shrink-0">
-            <div className="flex items-center justify-center bg-slate-50 border border-slate-200/50 rounded-2xl relative h-28 w-full overflow-hidden shadow-inner px-4 select-none">
-              {/* Highlight selection bracket in the center */}
-              <div className="absolute left-2 right-2 top-10 h-8 border-y border-[#C00A4A]/20 bg-[#C00A4A]/5 pointer-events-none rounded-lg" />
-              
-              {/* Top & Bottom 3D mask fades */}
-              <div className="absolute left-0 right-0 top-0 h-8 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none z-10" />
-              <div className="absolute left-0 right-0 bottom-0 h-8 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none z-10" />
-              
-              {/* Hour Wheel Dial Column */}
-              <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10" style={{ scrollSnapType: 'y mandatory' }}>
-                {hourOptions.map(h => {
-                  const isSel = pickerHour === h;
-                  return (
-                    <button
-                      type="button"
-                      key={h}
-                      onClick={() => setPickerHour(h)}
-                      className={`w-full h-8 flex items-center justify-center text-sm font-bold snap-center cursor-pointer transition-all ${
-                        isSel ? 'text-[#C00A4A] text-lg font-black scale-110' : 'text-slate-400 hover:text-slate-600'
-                      }`}
-                    >
-                      {h}시
-                    </button>
-                  );
-                })}
-              </div>
+            {timeMode !== 'allday' ? (
+              <div className="flex items-center justify-center bg-slate-50 border border-slate-200/50 rounded-2xl relative h-28 w-full overflow-hidden shadow-inner px-4 select-none">
+                {/* Highlight selection bracket in the center */}
+                <div className="absolute left-2 right-2 top-10 h-8 border-y border-[#C00A4A]/20 bg-[#C00A4A]/5 pointer-events-none rounded-lg" />
+                
+                {/* Top & Bottom 3D mask fades */}
+                <div className="absolute left-0 right-0 top-0 h-8 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none z-10" />
+                <div className="absolute left-0 right-0 bottom-0 h-8 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none z-10" />
+                
+                {/* Hour Wheel Dial Column */}
+                <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10" style={{ scrollSnapType: 'y mandatory' }}>
+                  {hourOptions.map(h => {
+                    const isSel = pickerHour === h;
+                    return (
+                      <button
+                        type="button"
+                        key={h}
+                        onClick={() => setPickerHour(h)}
+                        className={`w-full h-8 flex items-center justify-center text-sm font-bold snap-center cursor-pointer transition-all ${
+                          isSel ? 'text-[#C00A4A] text-lg font-black scale-110' : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        {h}시
+                      </button>
+                    );
+                  })}
+                </div>
 
-              {/* Center Divider colon */}
-              <span className="text-slate-400 font-extrabold px-1 z-20">:</span>
+                {/* Center Divider colon */}
+                <span className="text-slate-400 font-extrabold px-1 z-20">:</span>
 
-              {/* Minute Wheel Dial Column */}
-              <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10" style={{ scrollSnapType: 'y mandatory' }}>
-                {minuteOptions.map(m => {
-                  const isSel = pickerMinute === m;
-                  return (
-                    <button
-                      type="button"
-                      key={m}
-                      onClick={() => setPickerMinute(m)}
-                      className={`w-full h-8 flex items-center justify-center text-sm font-bold snap-center cursor-pointer transition-all ${
-                        isSel ? 'text-[#C00A4A] text-lg font-black scale-110' : 'text-slate-400 hover:text-slate-600'
-                      }`}
-                    >
-                      {m}분
-                    </button>
-                  );
-                })}
+                {/* Minute Wheel Dial Column */}
+                <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10" style={{ scrollSnapType: 'y mandatory' }}>
+                  {minuteOptions.map(m => {
+                    const isSel = pickerMinute === m;
+                    return (
+                      <button
+                        type="button"
+                        key={m}
+                        onClick={() => setPickerMinute(m)}
+                        className={`w-full h-8 flex items-center justify-center text-sm font-bold snap-center cursor-pointer transition-all ${
+                          isSel ? 'text-[#C00A4A] text-lg font-black scale-110' : 'text-slate-400 hover:text-slate-600'
+                        }`}
+                      >
+                        {m}분
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center bg-[#C00A4A]/5 border border-dashed border-[#C00A4A]/25 rounded-2xl h-28 w-full p-4 text-center select-none">
+                <span className="text-2xl mb-1">☀️</span>
+                <p className="text-xs font-black text-[#C00A4A]">하루 종일 전체 선택 모드</p>
+                <p className="text-[10px] text-slate-500 font-bold mt-0.5">해당 일자의 모든 시간대(00:00 ~ 23:50)를 한 번에 선택합니다.</p>
+              </div>
+            )}
 
             {/* Dial Vote Button */}
             {(() => {
-              const targetTime = `${pickerHour}:${pickerMinute}`;
-              const targetKey = `${selectedDate}_${targetTime}`;
-              const isVoted = currentUser && (calendarVotes[targetKey] || []).includes(currentUser.id);
-              
-              return (
-                <button
-                  onClick={() => {
-                    if (!currentUser) return;
-                    toggleTimeVotes([targetKey], !isVoted);
-                  }}
-                  className={`w-full py-3 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer ${
-                    isVoted
-                      ? 'bg-rose-50 border border-[#C00A4A]/30 text-[#C00A4A]'
-                      : 'bg-[#C00A4A] hover:bg-[#9e083d] text-white'
-                  }`}
-                >
-                  <Clock className="w-3.5 h-3.5 shrink-0" />
-                  {pickerHour}:{pickerMinute} {isVoted ? '투표 취소' : '이 시간 투표'}
-                </button>
-              );
+              if (timeMode === 'single') {
+                const targetTime = `${pickerHour}:${pickerMinute}`;
+                const targetKey = `${selectedDate}_${targetTime}`;
+                const isVoted = currentUser && (calendarVotes[targetKey] || []).includes(currentUser.id);
+                
+                return (
+                  <button
+                    onClick={() => {
+                      if (!currentUser) return;
+                      toggleTimeVotes([targetKey], !isVoted);
+                    }}
+                    className={`w-full py-3 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer ${
+                      isVoted
+                        ? 'bg-rose-50 border border-[#C00A4A]/30 text-[#C00A4A]'
+                        : 'bg-[#C00A4A] hover:bg-[#9e083d] text-white'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
+                    {pickerHour}:{pickerMinute} {isVoted ? '투표 취소' : '이 시간 투표'}
+                  </button>
+                );
+              } else if (timeMode === 'onwards') {
+                const startTime = `${pickerHour}:${pickerMinute}`;
+                const filterTimes = MINUTES_10.filter(time => time.localeCompare(startTime) >= 0);
+                const timeKeys = filterTimes.map(time => `${selectedDate}_${time}`);
+                const isAllRangeVoted = currentUser && timeKeys.every(k => (calendarVotes[k] || []).includes(currentUser.id));
+                
+                return (
+                  <button
+                    onClick={() => {
+                      if (!currentUser) return;
+                      toggleTimeVotes(timeKeys, !isAllRangeVoted);
+                    }}
+                    className={`w-full py-3 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer ${
+                      isAllRangeVoted
+                        ? 'bg-rose-50 border border-[#C00A4A]/30 text-[#C00A4A]'
+                        : 'bg-[#C00A4A] hover:bg-[#9e083d] text-white'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
+                    {pickerHour}:{pickerMinute}부터 그 이후 시간대 전체 {isAllRangeVoted ? '선택 취소' : '선택'}
+                  </button>
+                );
+              } else {
+                const timeKeys = MINUTES_10.map(time => `${selectedDate}_${time}`);
+                const isAllDayVoted = currentUser && timeKeys.every(k => (calendarVotes[k] || []).includes(currentUser.id));
+                
+                return (
+                  <button
+                    onClick={() => {
+                      if (!currentUser) return;
+                      toggleTimeVotes(timeKeys, !isAllDayVoted);
+                    }}
+                    className={`w-full py-3 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer ${
+                      isAllDayVoted
+                        ? 'bg-rose-50 border border-[#C00A4A]/30 text-[#C00A4A]'
+                        : 'bg-[#C00A4A] hover:bg-[#9e083d] text-white'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
+                    하루 종일 (00:00 ~ 23:50) {isAllDayVoted ? '선택 취소' : '선택'}
+                  </button>
+                );
+              }
             })()}
           </div>
 
           {/* Voted chips panel */}
           <div className="flex-1 flex flex-col justify-start overflow-hidden">
-            <span className="text-[10px] font-bold text-slate-400 mb-1.5 block shrink-0">투표 현황 (선택된 일자)</span>
+            <div className="flex items-center justify-between mb-1.5 shrink-0">
+              <span className="text-[10px] font-bold text-slate-400">투표 현황 (선택된 일자)</span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!currentUser) return;
+                  const timeKeys = MINUTES_10.map(time => `${selectedDate}_${time}`);
+                  toggleTimeVotes(timeKeys, false);
+                }}
+                className="px-2 py-0.5 bg-rose-50 border border-rose-200 hover:bg-rose-100 hover:text-rose-600 active:scale-95 rounded-lg text-[9px] font-black text-rose-500 transition-all cursor-pointer"
+                title="이 날의 투표 모두 해제"
+              >
+                🧹 비우기
+              </button>
+            </div>
             {votedSlotsForSelectedDate.length === 0 ? (
               <div className="bg-slate-50/50 border border-dashed border-slate-200 rounded-xl p-4 text-center text-xs text-slate-400 font-semibold leading-relaxed my-auto">
                 아직 투표된 시간대가 없습니다.<br />

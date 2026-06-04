@@ -197,15 +197,18 @@ const WrapupTab = () => {
     const finalDateStr = day ? `${day.label}일 (${day.dayOfWeek})` : '미정';
 
     let finalPlaceUrl = '';
+    let finalComment = '';
     if (selectedLocId !== 'custom') {
       const loc = locations.find(l => l.id === selectedLocId);
       finalPlaceUrl = loc ? loc.placeUrl : '';
+      finalComment = loc ? loc.comment : '';
     }
     finalizeYaksok({
       date: finalDateStr,
       time: selectedHour,
       location: finalLocName,
-      placeUrl: finalPlaceUrl
+      placeUrl: finalPlaceUrl,
+      comment: finalComment
     });
   };
 
@@ -506,6 +509,11 @@ const WrapupTab = () => {
                   </a>
                 )}
               </span>
+              {receipt.comment && (
+                <span className="text-[9px] font-bold text-rose-500 bg-rose-50 border border-rose-100/40 px-1.5 py-0.5 rounded mt-0.5 block w-fit">
+                  💬 {receipt.comment}
+                </span>
+              )}
             </div>
           </div>
 

@@ -552,129 +552,166 @@ const CalendarTab = ({ setActiveTab }) => {
             >
               🕒 단일 시간
             </button>
-            <button
-              type="button"
-              onClick={() => setTimeMode('macro')}
-              className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer text-center ${
-                timeMode === 'macro'
-                  ? 'bg-white text-[#C00A4A] shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              ⚡ 대형 필터
-            </button>
           </div>
 
           {/* Premium Birthdate-style Double Wheel Dial Picker / Mode Illustration */}
           <div className="flex flex-col gap-3 shrink-0">
             {timeMode === 'range' && (
-              <div className="space-y-2">
-                {/* Tabs inside range mode: Start vs End */}
-                <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-200/40">
-                  <button 
-                    type="button" 
-                    onClick={() => setRangeActiveTab('start')} 
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
-                      rangeActiveTab === 'start' 
-                        ? 'bg-[#C00A4A] text-white shadow-sm' 
-                        : 'text-slate-500 hover:bg-slate-100'
-                    }`}
-                  >
-                    시작: {pickerStartHour}:{pickerStartMinute}
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={() => setRangeActiveTab('end')} 
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
-                      rangeActiveTab === 'end' 
-                        ? 'bg-[#C00A4A] text-white shadow-sm' 
-                        : 'text-slate-500 hover:bg-slate-100'
-                    }`}
-                  >
-                    종료: {pickerEndHour}:{pickerEndMinute}
-                  </button>
+              <div className="flex flex-col gap-2">
+                {/* Visual Label showing Start ~ End */}
+                <div className="text-center py-1 bg-rose-50/50 border border-rose-100 rounded-xl">
+                  <span className="text-xs font-black text-[#C00A4A]">
+                    ⏰ {pickerStartHour}:{pickerStartMinute} ~ {pickerEndHour}:{pickerEndMinute} 범위 선택 중
+                  </span>
                 </div>
 
-                <div className="flex items-center justify-center bg-slate-50 border border-slate-200/50 rounded-2xl relative h-28 w-full overflow-hidden shadow-inner px-4 select-none">
-                  <div className="absolute left-2 right-2 top-10 h-8 border-y border-[#C00A4A]/20 bg-[#C00A4A]/5 pointer-events-none rounded-lg" />
-                  <div className="absolute left-0 right-0 top-0 h-8 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none z-10" />
-                  <div className="absolute left-0 right-0 bottom-0 h-8 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none z-10" />
-                  
-                  {/* Hour Wheel Dial Column */}
-                  <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10" style={{ scrollSnapType: 'y mandatory' }}>
-                    {hourOptions.map(h => {
-                      const isSel = rangeActiveTab === 'start' ? pickerStartHour === h : pickerEndHour === h;
-                      return (
-                        <button
-                          type="button"
-                          key={h}
-                          onClick={() => {
-                            if (rangeActiveTab === 'start') {
-                              setPickerStartHour(h);
-                              if (parseInt(h) > parseInt(pickerEndHour)) {
-                                setPickerEndHour(h);
-                              }
-                            } else {
-                              setPickerEndHour(h);
-                              if (parseInt(h) < parseInt(pickerStartHour)) {
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Start Time Dial Wheel */}
+                  <div className="space-y-1">
+                    <div className="text-center text-[10px] font-bold text-slate-400">시작 시간</div>
+                    <div className="flex items-center justify-center bg-[#f8fafc] border border-slate-100 rounded-3xl relative h-28 w-full overflow-hidden shadow-sm px-2 select-none">
+                      {/* Highlight bar mimicking image */}
+                      <div className="absolute left-1 right-1 top-[40px] h-8 border border-rose-200/50 bg-[#C00A4A]/5 pointer-events-none rounded-xl flex items-center justify-between px-6 z-10">
+                        <div className="w-8" />
+                        <span className="text-[#C00A4A] font-extrabold text-sm">:</span>
+                        <div className="w-8" />
+                      </div>
+                      <div className="absolute left-0 right-0 top-0 h-8 bg-gradient-to-b from-[#f8fafc] to-transparent pointer-events-none z-20" />
+                      <div className="absolute left-0 right-0 bottom-0 h-8 bg-gradient-to-t from-[#f8fafc] to-transparent pointer-events-none z-20" />
+                      
+                      {/* Start Hour Column */}
+                      <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10 z-0" style={{ scrollSnapType: 'y mandatory' }}>
+                        {hourOptions.map(h => {
+                          const isSel = pickerStartHour === h;
+                          return (
+                            <button
+                              type="button"
+                              key={h}
+                              onClick={() => {
                                 setPickerStartHour(h);
-                              }
-                            }
-                          }}
-                          className={`w-full h-8 flex items-center justify-center text-sm font-bold snap-center cursor-pointer transition-all ${
-                            isSel ? 'text-[#C00A4A] text-lg font-black scale-110' : 'text-slate-400 hover:text-slate-600'
-                          }`}
-                        >
-                          {h}시
-                        </button>
-                      );
-                    })}
+                                if (parseInt(h) > parseInt(pickerEndHour)) {
+                                  setPickerEndHour(h);
+                                }
+                              }}
+                              className={`w-full h-8 flex items-center justify-center text-xs snap-center cursor-pointer transition-all ${
+                                isSel ? 'text-[#C00A4A] font-black scale-105' : 'text-slate-400 font-semibold'
+                              }`}
+                            >
+                              {h}시
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="w-1 shrink-0" />
+
+                      {/* Start Minute Column */}
+                      <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10 z-0" style={{ scrollSnapType: 'y mandatory' }}>
+                        {minuteOptions.map(m => {
+                          const isSel = pickerStartMinute === m;
+                          return (
+                            <button
+                              type="button"
+                              key={m}
+                              onClick={() => {
+                                setPickerStartMinute(m);
+                                if (pickerStartHour === pickerEndHour && parseInt(m) > parseInt(pickerEndMinute)) {
+                                  setPickerEndMinute(m);
+                                }
+                              }}
+                              className={`w-full h-8 flex items-center justify-center text-xs snap-center cursor-pointer transition-all ${
+                                isSel ? 'text-[#C00A4A] font-black scale-105' : 'text-slate-400 font-semibold'
+                              }`}
+                            >
+                              {m}분
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
 
-                  <span className="text-slate-400 font-extrabold px-1 z-20">:</span>
+                  {/* End Time Dial Wheel */}
+                  <div className="space-y-1">
+                    <div className="text-center text-[10px] font-bold text-slate-400">종료 시간</div>
+                    <div className="flex items-center justify-center bg-[#f8fafc] border border-slate-100 rounded-3xl relative h-28 w-full overflow-hidden shadow-sm px-2 select-none">
+                      {/* Highlight bar mimicking image */}
+                      <div className="absolute left-1 right-1 top-[40px] h-8 border border-rose-200/50 bg-[#C00A4A]/5 pointer-events-none rounded-xl flex items-center justify-between px-6 z-10">
+                        <div className="w-8" />
+                        <span className="text-[#C00A4A] font-extrabold text-sm">:</span>
+                        <div className="w-8" />
+                      </div>
+                      <div className="absolute left-0 right-0 top-0 h-8 bg-gradient-to-b from-[#f8fafc] to-transparent pointer-events-none z-20" />
+                      <div className="absolute left-0 right-0 bottom-0 h-8 bg-gradient-to-t from-[#f8fafc] to-transparent pointer-events-none z-20" />
+                      
+                      {/* End Hour Column */}
+                      <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10 z-0" style={{ scrollSnapType: 'y mandatory' }}>
+                        {hourOptions.map(h => {
+                          const isSel = pickerEndHour === h;
+                          return (
+                            <button
+                              type="button"
+                              key={h}
+                              onClick={() => {
+                                setPickerEndHour(h);
+                                if (parseInt(h) < parseInt(pickerStartHour)) {
+                                  setPickerStartHour(h);
+                                }
+                              }}
+                              className={`w-full h-8 flex items-center justify-center text-xs snap-center cursor-pointer transition-all ${
+                                isSel ? 'text-[#C00A4A] font-black scale-105' : 'text-slate-400 font-semibold'
+                              }`}
+                            >
+                              {h}시
+                            </button>
+                          );
+                        })}
+                      </div>
 
-                  {/* Minute Wheel Dial Column */}
-                  <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10" style={{ scrollSnapType: 'y mandatory' }}>
-                    {minuteOptions.map(m => {
-                      const isSel = rangeActiveTab === 'start' ? pickerStartMinute === m : pickerEndMinute === m;
-                      return (
-                        <button
-                          type="button"
-                          key={m}
-                          onClick={() => {
-                            if (rangeActiveTab === 'start') {
-                              setPickerStartMinute(m);
-                              if (pickerStartHour === pickerEndHour && parseInt(m) > parseInt(pickerEndMinute)) {
+                      <div className="w-1 shrink-0" />
+
+                      {/* End Minute Column */}
+                      <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10 z-0" style={{ scrollSnapType: 'y mandatory' }}>
+                        {minuteOptions.map(m => {
+                          const isSel = pickerEndMinute === m;
+                          return (
+                            <button
+                              type="button"
+                              key={m}
+                              onClick={() => {
                                 setPickerEndMinute(m);
-                              }
-                            } else {
-                              setPickerEndMinute(m);
-                              if (pickerStartHour === pickerEndHour && parseInt(m) < parseInt(pickerStartMinute)) {
-                                setPickerStartMinute(m);
-                              }
-                            }
-                          }}
-                          className={`w-full h-8 flex items-center justify-center text-sm font-bold snap-center cursor-pointer transition-all ${
-                            isSel ? 'text-[#C00A4A] text-lg font-black scale-110' : 'text-slate-400 hover:text-slate-600'
-                          }`}
-                        >
-                          {m}분
-                        </button>
-                      );
-                    })}
+                                if (pickerStartHour === pickerEndHour && parseInt(m) < parseInt(pickerStartMinute)) {
+                                  setPickerStartMinute(m);
+                                }
+                              }}
+                              className={`w-full h-8 flex items-center justify-center text-xs snap-center cursor-pointer transition-all ${
+                                isSel ? 'text-[#C00A4A] font-black scale-105' : 'text-slate-400 font-semibold'
+                              }`}
+                            >
+                              {m}분
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
             {timeMode === 'single' && (
-              <div className="flex items-center justify-center bg-slate-50 border border-slate-200/50 rounded-2xl relative h-28 w-full overflow-hidden shadow-inner px-4 select-none">
-                <div className="absolute left-2 right-2 top-10 h-8 border-y border-[#C00A4A]/20 bg-[#C00A4A]/5 pointer-events-none rounded-lg" />
-                <div className="absolute left-0 right-0 top-0 h-8 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none z-10" />
-                <div className="absolute left-0 right-0 bottom-0 h-8 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none z-10" />
+              <div className="flex items-center justify-center bg-[#f8fafc] border border-slate-100 rounded-3xl relative h-28 w-full overflow-hidden shadow-sm px-6 select-none">
+                {/* Visual Highlight Overlay mimicking the image precisely */}
+                <div className="absolute left-3 right-3 top-[40px] h-8 border border-rose-200/50 bg-[#C00A4A]/5 pointer-events-none rounded-xl flex items-center justify-between px-10 z-10">
+                  <div className="w-16" />
+                  <span className="text-[#C00A4A] font-extrabold text-sm">:</span>
+                  <div className="w-16" />
+                </div>
+                <div className="absolute left-0 right-0 top-0 h-8 bg-gradient-to-b from-[#f8fafc] to-transparent pointer-events-none z-20" />
+                <div className="absolute left-0 right-0 bottom-0 h-8 bg-gradient-to-t from-[#f8fafc] to-transparent pointer-events-none z-20" />
                 
                 {/* Hour Wheel Dial Column */}
-                <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10" style={{ scrollSnapType: 'y mandatory' }}>
+                <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10 z-0" style={{ scrollSnapType: 'y mandatory' }}>
                   {hourOptions.map(h => {
                     const isSel = pickerStartHour === h;
                     return (
@@ -682,8 +719,8 @@ const CalendarTab = ({ setActiveTab }) => {
                         type="button"
                         key={h}
                         onClick={() => setPickerStartHour(h)}
-                        className={`w-full h-8 flex items-center justify-center text-sm font-bold snap-center cursor-pointer transition-all ${
-                          isSel ? 'text-[#C00A4A] text-lg font-black scale-110' : 'text-slate-400 hover:text-slate-600'
+                        className={`w-full h-8 flex items-center justify-center text-sm snap-center cursor-pointer transition-all ${
+                          isSel ? 'text-[#C00A4A] font-black scale-105' : 'text-slate-400 font-semibold'
                         }`}
                       >
                         {h}시
@@ -692,10 +729,10 @@ const CalendarTab = ({ setActiveTab }) => {
                   })}
                 </div>
 
-                <span className="text-slate-400 font-extrabold px-1 z-20">:</span>
+                <div className="w-4 shrink-0" />
 
                 {/* Minute Wheel Dial Column */}
-                <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10" style={{ scrollSnapType: 'y mandatory' }}>
+                <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10 z-0" style={{ scrollSnapType: 'y mandatory' }}>
                   {minuteOptions.map(m => {
                     const isSel = pickerStartMinute === m;
                     return (
@@ -703,8 +740,8 @@ const CalendarTab = ({ setActiveTab }) => {
                         type="button"
                         key={m}
                         onClick={() => setPickerStartMinute(m)}
-                        className={`w-full h-8 flex items-center justify-center text-sm font-bold snap-center cursor-pointer transition-all ${
-                          isSel ? 'text-[#C00A4A] text-lg font-black scale-110' : 'text-slate-400 hover:text-slate-600'
+                        className={`w-full h-8 flex items-center justify-center text-sm snap-center cursor-pointer transition-all ${
+                          isSel ? 'text-[#C00A4A] font-black scale-105' : 'text-slate-400 font-semibold'
                         }`}
                       >
                         {m}분
@@ -712,43 +749,6 @@ const CalendarTab = ({ setActiveTab }) => {
                     );
                   })}
                 </div>
-              </div>
-            )}
-
-            {timeMode === 'macro' && (
-              <div className="grid grid-cols-2 gap-1.5 max-h-28 overflow-y-auto p-1 border border-slate-100 rounded-2xl bg-slate-50/50">
-                {[
-                  { label: '☀️ 하루 종일', desc: '00:00 ~ 23:50', start: '00:00', end: '23:50' },
-                  { label: '🌅 오전', desc: '06:00 ~ 12:00', start: '06:00', end: '12:00' },
-                  { label: '☀️ 오후', desc: '12:00 ~ 18:00', start: '12:00', end: '18:00' },
-                  { label: '🌆 저녁', desc: '18:00 ~ 22:00', start: '18:00', end: '22:00' },
-                  { label: '🌙 밤/새벽', desc: '22:00 ~ 23:50', start: '22:00', end: '23:50' },
-                  { label: '🍜 점심시간', desc: '11:30 ~ 13:30', start: '11:30', end: '13:30' },
-                  { label: '💼 퇴근이후', desc: '18:00 ~ 23:50', start: '18:00', end: '23:50' }
-                ].map((macro) => {
-                  const filterTimes = MINUTES_10.filter(time => time.localeCompare(macro.start) >= 0 && time.localeCompare(macro.end) <= 0);
-                  const timeKeys = filterTimes.map(time => `${selectedDate}_${time}`);
-                  const isAllVoted = currentUser && timeKeys.every(k => (calendarVotes[k] || []).includes(currentUser.id));
-                  
-                  return (
-                    <button
-                      type="button"
-                      key={macro.label}
-                      onClick={() => {
-                        if (!currentUser) return;
-                        toggleTimeVotes(timeKeys, !isAllVoted);
-                      }}
-                      className={`py-2 px-2.5 rounded-xl border text-[11px] font-extrabold transition-all cursor-pointer text-left flex flex-col justify-center gap-0.5 active:scale-95 ${
-                        isAllVoted
-                          ? 'bg-rose-50 border-[#C00A4A] text-[#C00A4A]'
-                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      <span>{macro.label}</span>
-                      <span className="text-[9px] opacity-70 font-mono font-medium">{macro.desc}</span>
-                    </button>
-                  );
-                })}
               </div>
             )}
 

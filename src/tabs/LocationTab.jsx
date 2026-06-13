@@ -45,6 +45,42 @@ const LocationTab = () => {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [recommendationCenter, setRecommendationCenter] = useState(null);
   const [dynamicRecommendations, setDynamicRecommendations] = useState([]);
+  const [placeRatings, setPlaceRatings] = useState({}); // { [placeId]: rating }
+
+  const fetchRatingForId = async (id) => {
+    if (!id || placeRatings[id]) return;
+    try {
+      const response = await fetch(`/kakao-place-api/places/panel3/${id}`);
+      if (response.ok) {
+        const resData = await response.json();
+        const ratingVal = resData.summary?.star_rating || (resData.summary?.scoresum && resData.summary?.scorecnt ? (resData.summary.scoresum / resData.summary.scorecnt) : null);
+        if (ratingVal !== undefined && ratingVal !== null) {
+          setPlaceRatings(prev => ({ ...prev, [id]: parseFloat(ratingVal).toFixed(1) }));
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to fetch rating for place ID:", id, err);
+    }
+  };
+
+  // Auto-fetch ratings for search results and proposed locations
+  useEffect(() => {
+    searchResults.forEach(rec => {
+      if (rec.id && !placeRatings[rec.id]) {
+        fetchRatingForId(rec.id);
+      }
+    });
+  }, [searchResults]);
+
+  useEffect(() => {
+    locations.forEach(loc => {
+      const match = loc.placeUrl?.match(/\d+/);
+      const placeId = match ? match[0] : null;
+      if (placeId && !placeRatings[placeId]) {
+        fetchRatingForId(placeId);
+      }
+    });
+  }, [locations]);
 
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -413,19 +449,8 @@ const LocationTab = () => {
         setDynamicRecommendations(formatted);
 
         // Fetch actual ratings asynchronously
-        formatted.forEach(async (item) => {
-          try {
-            const response = await fetch(`/kakao-place-api/places/panel3/${item.id}`);
-            if (response.ok) {
-              const resData = await response.json();
-              const ratingVal = resData.summary?.star_rating || (resData.summary?.scoresum && resData.summary?.scorecnt ? (resData.summary.scoresum / resData.summary.scorecnt) : null);
-              if (ratingVal !== undefined && ratingVal !== null) {
-                setDynamicRecommendations(prev => prev.map(p => p.id === item.id ? { ...p, rating: parseFloat(ratingVal).toFixed(1) } : p));
-              }
-            }
-          } catch (err) {
-            console.warn("Failed to fetch rating for place:", item.id, err);
-          }
+        formatted.forEach(item => {
+          fetchRatingForId(item.id);
         });
       } else {
         // Fallback
@@ -702,13 +727,21 @@ const LocationTab = () => {
                   className="glass-card rounded-2xl p-3.5 border border-slate-200/60 min-w-[210px] flex flex-col justify-between space-y-3 bg-white shadow-md cursor-pointer hover:border-[#C00A4A]/50 transition-all"
                 >
                   <div>
-                    <div className="flex items-start justify-between">
-                      <h5 className="font-extrabold text-xs text-slate-800 truncate max-w-[140px]" title={rec.place_name}>
+                    <div className="flex items-start justify-between gap-1">
+                      <h5 className="font-extrabold text-xs text-slate-800 truncate max-w-[100px]" title={rec.place_name}>
                         {rec.place_name}
                       </h5>
-                      <span className="text-[7.5px] bg-slate-100 text-slate-400 px-1 py-0.5 rounded font-extrabold shrink-0">
-                        {rec.category_group_name || '장소'}
-                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {placeRatings[rec.id] && (
+                          <span className="flex items-center gap-0.5 text-[10px] text-yellow-500 font-bold">
+                            <Star className="w-3 h-3 fill-yellow-500" />
+                            {placeRatings[rec.id]}
+                          </span>
+                        )}
+                        <span className="text-[7.5px] bg-slate-100 text-slate-400 px-1 py-0.5 rounded font-extrabold">
+                          {rec.category_group_name || '장소'}
+                        </span>
+                      </div>
                     </div>
                     <p className="text-[10px] text-slate-400 truncate mt-1" title={rec.road_address_name || rec.address_name}>
                       {rec.road_address_name || rec.address_name}
@@ -764,7 +797,7 @@ const LocationTab = () => {
                       <h5 className="font-extrabold text-xs text-slate-800 truncate max-w-[130px]">{rec.name}</h5>
                       <span className="flex items-center gap-0.5 text-[10px] text-yellow-500 font-bold shrink-0">
                         <Star className="w-3 h-3 fill-yellow-500" />
-                        {rec.rating}
+                        {placeRatings[rec.id] || rec.rating}
                       </span>
                     </div>
                     <p className="text-[10px] text-slate-400 truncate mt-1">{rec.address}</p>
@@ -844,6 +877,20 @@ const LocationTab = () => {
                       <span className="text-[9px] font-bold bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-lg border border-slate-200/50">
                         {loc.category}
                       </span>
+                      {(() => {
+                        const match = loc.placeUrl?.match(/\d+/);
+                        const placeId = match ? match[0] : null;
+                        const rating = placeId ? placeRatings[placeId] : null;
+                        if (rating) {
+                          return (
+                            <span className="flex items-center gap-0.5 text-[9px] text-yellow-500 font-bold bg-yellow-50/50 px-1.5 py-0.5 border border-yellow-100 rounded-lg shrink-0">
+                              <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
+                              {rating}
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
                       {loc.placeUrl && (
                         <a
                           href={loc.placeUrl}

@@ -278,7 +278,7 @@ const RoomContainer = () => {
   };
 
   return (
-    <div className={`min-h-screen flex flex-col justify-between relative bg-[#f8fafc] ${shouldShake ? 'shake-active' : ''}`}>
+    <div className={`h-screen flex flex-col justify-between relative bg-[#f8fafc] overflow-hidden ${shouldShake ? 'shake-active' : ''}`}>
       {/* 🚀 Header */}
       <header className="glass-panel sticky top-0 z-40 px-4 py-3 flex items-center justify-between shadow-sm border-b border-slate-100">
         <button
@@ -369,12 +369,12 @@ const RoomContainer = () => {
       </section>
 
       {/* 🚀 Active Screen/Tab Render */}
-      <main className="flex-1 overflow-y-auto px-4 py-4 flex flex-col z-10 max-h-[calc(100vh-140px)] animate-fade-in-up">
-        {activeTab === 'calendar' && <CalendarTab setActiveTab={setActiveTab} />}
-        {activeTab === 'location' && <LocationTab />}
+      <main className="flex-1 min-h-0 px-4 py-4 flex flex-col z-10">
+        {activeTab === 'calendar' && <div className="flex-1 overflow-y-auto"><CalendarTab setActiveTab={setActiveTab} /></div>}
+        {activeTab === 'location' && <div className="flex-1 overflow-y-auto"><LocationTab /></div>}
         {activeTab === 'chat' && <ChatTab setActiveTab={setActiveTab} />}
-        {activeTab === 'roulette' && <RouletteTab />}
-        {activeTab === 'wrapup' && <WrapupTab />}
+        {activeTab === 'roulette' && <div className="flex-1 overflow-y-auto"><RouletteTab /></div>}
+        {activeTab === 'wrapup' && <div className="flex-1 overflow-y-auto"><WrapupTab /></div>}
       </main>
 
       {/* 📱 Bottom Navigation TabBar */}

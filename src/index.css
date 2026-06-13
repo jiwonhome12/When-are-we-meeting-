@@ -120,7 +120,8 @@ body {
 .app-container {
   max-width: 480px; /* max-w-md equivalent for neat app feel */
   margin: 0 auto;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background-color: var(--bg-dark); /* Slate-50 base inside */
   box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
   display: flex;

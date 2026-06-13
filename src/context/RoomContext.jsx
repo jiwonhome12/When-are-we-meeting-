@@ -634,26 +634,11 @@ export const RoomProvider = ({ children }) => {
     updateDateRange(newStartDate, currentEnd);
   };
 
-  // 10. 방 나가기 및 초기화
+  // 10. 방 나가기 및 초기화 (임시로 메인 대시보드로 나가기, 멤버십 및 대화 내역 유지)
   const leaveRoom = () => {
     if (currentUser && roomCode) {
-      const updatedParticipants = participants.filter(p => p.id !== currentUser.id);
-      
-      const systemMsg = {
-        id: `sys_${Date.now()}`,
-        senderId: 'system',
-        senderName: '시스템',
-        text: `🚪 ${currentUser.emoji} ${currentUser.name}님이 퇴장하셨습니다.`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        type: 'system'
-      };
-
-      const nextMessages = [...chatMessages, systemMsg];
-      
-      broadcastState(getFullState({
-        participants: updatedParticipants,
-        chatMessages: nextMessages
-      }));
+      // 멤버십 목록에서 제외하거나 퇴장 메시지를 남기지 않고, 현재 상태를 그대로 저장
+      broadcastState(getFullState());
     }
     
     setRoomCode(null);
@@ -661,7 +646,7 @@ export const RoomProvider = ({ children }) => {
     setParticipants([]);
     setCalendarVotes({});
     setLocations([]);
-    setChatMessages([]);
+    // chatMessages are kept intact in state and database to prevent history loss on room leave/navigation
     setRouletteResult(null);
   };
 

@@ -197,12 +197,12 @@ const ChatTab = ({ setActiveTab }) => {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-[300px] overflow-hidden max-h-full">
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* 💬 Chat Messages Panel */}
-      <div className="flex-1 overflow-y-auto space-y-3.5 pr-1.5 max-h-[320px] mb-3">
+      <div className="flex-1 overflow-y-auto space-y-3.5 pr-1.5 mb-3">
         {chatMessages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center p-6 text-center select-none opacity-60">
-            <Bell className="w-7 h-7 text-slate-400 mb-2" />
+            <Bell className="w-7 h-7 text-slate-400 mb-2 animate-bounce" />
             <p className="text-xs font-semibold text-slate-600">실시간 채팅방이 개설되었습니다.</p>
             <p className="text-[9px] text-slate-400 mt-0.5">메시지나 링크 배너를 통해 소통해보세요.</p>
           </div>

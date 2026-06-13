@@ -32,14 +32,17 @@ const CalendarTab = ({ setActiveTab }) => {
   const [selectedDate, setSelectedDate] = useState(roomStartDate);
   const [currentMonth, setCurrentMonth] = useState(() => new Date(roomStartDate));
 
-  const [pickerHour, setPickerHour] = useState('12');
-  const [pickerMinute, setPickerMinute] = useState('00');
-  const [timeMode, setTimeMode] = useState('single'); // 'single' | 'onwards' | 'allday'
+  const [pickerStartHour, setPickerStartHour] = useState('12');
+  const [pickerStartMinute, setPickerStartMinute] = useState('00');
+  const [pickerEndHour, setPickerEndHour] = useState('14');
+  const [pickerEndMinute, setPickerEndMinute] = useState('00');
+  const [rangeActiveTab, setRangeActiveTab] = useState('start'); // 'start' | 'end'
+  const [timeMode, setTimeMode] = useState('range'); // 'range' | 'single' | 'macro'
 
   const hourOptions = useMemo(() => Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')), []);
   const minuteOptions = useMemo(() => ['00', '10', '20', '30', '40', '50'], []);
 
-  // Get active (voted) slots for ALL dates grouped by consecutive ranges with the same voters
+  // Get active (voted) slots for ALL dates grouped by consecutive ranges with Peak Time extraction
   const groupedVotedSlots = useMemo(() => {
     const arr = [];
     Object.entries(calendarVotes).forEach(([cellKey, votes]) => {
@@ -57,19 +60,21 @@ const CalendarTab = ({ setActiveTab }) => {
 
     if (arr.length === 0) return [];
 
-    const groups = [];
-    let currentGroup = null;
-
-    const areVotesEqual = (v1, v2) => {
-      if (v1.length !== v2.length) return false;
-      const s1 = new Set(v1);
-      return v2.every(v => s1.has(v));
-    };
-
     const getMinutes = (timeStr) => {
       const [h, m] = timeStr.split(':').map(Number);
       return h * 60 + m;
     };
+
+    const add10Minutes = (timeStr) => {
+      const [h, m] = timeStr.split(':').map(Number);
+      const total = h * 60 + m + 10;
+      const newH = Math.floor(total / 60) % 24;
+      const newM = total % 60;
+      return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+    };
+
+    const groups = [];
+    let currentGroup = null;
 
     arr.forEach(slot => {
       if (!currentGroup) {
@@ -77,24 +82,22 @@ const CalendarTab = ({ setActiveTab }) => {
           date: slot.date,
           startTime: slot.time,
           endTime: slot.time,
-          votes: slot.votes,
-          keys: [slot.key]
+          slots: [slot]
         };
       } else {
         const prevMinutes = getMinutes(currentGroup.endTime);
         const currMinutes = getMinutes(slot.time);
         
-        if (slot.date === currentGroup.date && currMinutes - prevMinutes === 10 && areVotesEqual(currentGroup.votes, slot.votes)) {
+        if (slot.date === currentGroup.date && currMinutes - prevMinutes === 10) {
           currentGroup.endTime = slot.time;
-          currentGroup.keys.push(slot.key);
+          currentGroup.slots.push(slot);
         } else {
           groups.push(currentGroup);
           currentGroup = {
             date: slot.date,
             startTime: slot.time,
             endTime: slot.time,
-            votes: slot.votes,
-            keys: [slot.key]
+            slots: [slot]
           };
         }
       }
@@ -103,7 +106,67 @@ const CalendarTab = ({ setActiveTab }) => {
       groups.push(currentGroup);
     }
 
-    return groups;
+    return groups.map(g => {
+      const unionVoters = Array.from(new Set(g.slots.flatMap(s => s.votes)));
+      const keys = g.slots.map(s => s.key);
+      
+      // Find Peak Time (sub-range with maximum votes)
+      let maxVotesCount = 0;
+      g.slots.forEach(s => {
+        if (s.votes.length > maxVotesCount) {
+          maxVotesCount = s.votes.length;
+        }
+      });
+
+      let peakStart = null;
+      let peakEnd = null;
+      let maxPeakLength = 0;
+      
+      let tempStart = null;
+      let tempEnd = null;
+      let tempLength = 0;
+
+      g.slots.forEach(s => {
+        if (s.votes.length === maxVotesCount) {
+          if (tempStart === null) {
+            tempStart = s.time;
+            tempEnd = s.time;
+            tempLength = 1;
+          } else {
+            tempEnd = s.time;
+            tempLength += 1;
+          }
+        } else {
+          if (tempStart !== null) {
+            if (tempLength > maxPeakLength) {
+              maxPeakLength = tempLength;
+              peakStart = tempStart;
+              peakEnd = tempEnd;
+            }
+            tempStart = null;
+            tempEnd = null;
+            tempLength = 0;
+          }
+        }
+      });
+      if (tempStart !== null && tempLength > maxPeakLength) {
+        peakStart = tempStart;
+        peakEnd = tempEnd;
+      }
+
+      return {
+        date: g.date,
+        startTime: g.startTime,
+        endTime: add10Minutes(g.endTime),
+        votes: unionVoters,
+        keys,
+        peakTime: peakStart && maxVotesCount > 0 ? {
+          startTime: peakStart,
+          endTime: add10Minutes(peakEnd),
+          votesCount: maxVotesCount
+        } : null
+      };
+    });
   }, [calendarVotes]);
 
   // Group the voted ranges by date (chronologically)
@@ -469,9 +532,9 @@ const CalendarTab = ({ setActiveTab }) => {
           <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200/50 shrink-0">
             <button
               type="button"
-              onClick={() => setTimeMode('single')}
+              onClick={() => setTimeMode('range')}
               className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer text-center ${
-                timeMode === 'single'
+                timeMode === 'range'
                   ? 'bg-white text-[#C00A4A] shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'
               }`}
@@ -480,48 +543,145 @@ const CalendarTab = ({ setActiveTab }) => {
             </button>
             <button
               type="button"
-              onClick={() => setTimeMode('onwards')}
+              onClick={() => setTimeMode('single')}
               className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer text-center ${
-                timeMode === 'onwards'
+                timeMode === 'single'
                   ? 'bg-white text-[#C00A4A] shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              ⏳ 이후 시간대
+              🕒 단일 시간
             </button>
             <button
               type="button"
-              onClick={() => setTimeMode('allday')}
+              onClick={() => setTimeMode('macro')}
               className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer text-center ${
-                timeMode === 'allday'
+                timeMode === 'macro'
                   ? 'bg-white text-[#C00A4A] shadow-sm'
                   : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              ☀️ 하루 종일
+              ⚡ 대형 필터
             </button>
           </div>
 
           {/* Premium Birthdate-style Double Wheel Dial Picker / Mode Illustration */}
           <div className="flex flex-col gap-3 shrink-0">
-            {timeMode !== 'allday' ? (
+            {timeMode === 'range' && (
+              <div className="space-y-2">
+                {/* Tabs inside range mode: Start vs End */}
+                <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-200/40">
+                  <button 
+                    type="button" 
+                    onClick={() => setRangeActiveTab('start')} 
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
+                      rangeActiveTab === 'start' 
+                        ? 'bg-[#C00A4A] text-white shadow-sm' 
+                        : 'text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    시작: {pickerStartHour}:{pickerStartMinute}
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => setRangeActiveTab('end')} 
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center ${
+                      rangeActiveTab === 'end' 
+                        ? 'bg-[#C00A4A] text-white shadow-sm' 
+                        : 'text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    종료: {pickerEndHour}:{pickerEndMinute}
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-center bg-slate-50 border border-slate-200/50 rounded-2xl relative h-28 w-full overflow-hidden shadow-inner px-4 select-none">
+                  <div className="absolute left-2 right-2 top-10 h-8 border-y border-[#C00A4A]/20 bg-[#C00A4A]/5 pointer-events-none rounded-lg" />
+                  <div className="absolute left-0 right-0 top-0 h-8 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none z-10" />
+                  <div className="absolute left-0 right-0 bottom-0 h-8 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none z-10" />
+                  
+                  {/* Hour Wheel Dial Column */}
+                  <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10" style={{ scrollSnapType: 'y mandatory' }}>
+                    {hourOptions.map(h => {
+                      const isSel = rangeActiveTab === 'start' ? pickerStartHour === h : pickerEndHour === h;
+                      return (
+                        <button
+                          type="button"
+                          key={h}
+                          onClick={() => {
+                            if (rangeActiveTab === 'start') {
+                              setPickerStartHour(h);
+                              if (parseInt(h) > parseInt(pickerEndHour)) {
+                                setPickerEndHour(h);
+                              }
+                            } else {
+                              setPickerEndHour(h);
+                              if (parseInt(h) < parseInt(pickerStartHour)) {
+                                setPickerStartHour(h);
+                              }
+                            }
+                          }}
+                          className={`w-full h-8 flex items-center justify-center text-sm font-bold snap-center cursor-pointer transition-all ${
+                            isSel ? 'text-[#C00A4A] text-lg font-black scale-110' : 'text-slate-400 hover:text-slate-600'
+                          }`}
+                        >
+                          {h}시
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <span className="text-slate-400 font-extrabold px-1 z-20">:</span>
+
+                  {/* Minute Wheel Dial Column */}
+                  <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10" style={{ scrollSnapType: 'y mandatory' }}>
+                    {minuteOptions.map(m => {
+                      const isSel = rangeActiveTab === 'start' ? pickerStartMinute === m : pickerEndMinute === m;
+                      return (
+                        <button
+                          type="button"
+                          key={m}
+                          onClick={() => {
+                            if (rangeActiveTab === 'start') {
+                              setPickerStartMinute(m);
+                              if (pickerStartHour === pickerEndHour && parseInt(m) > parseInt(pickerEndMinute)) {
+                                setPickerEndMinute(m);
+                              }
+                            } else {
+                              setPickerEndMinute(m);
+                              if (pickerStartHour === pickerEndHour && parseInt(m) < parseInt(pickerStartMinute)) {
+                                setPickerStartMinute(m);
+                              }
+                            }
+                          }}
+                          className={`w-full h-8 flex items-center justify-center text-sm font-bold snap-center cursor-pointer transition-all ${
+                            isSel ? 'text-[#C00A4A] text-lg font-black scale-110' : 'text-slate-400 hover:text-slate-600'
+                          }`}
+                        >
+                          {m}분
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {timeMode === 'single' && (
               <div className="flex items-center justify-center bg-slate-50 border border-slate-200/50 rounded-2xl relative h-28 w-full overflow-hidden shadow-inner px-4 select-none">
-                {/* Highlight selection bracket in the center */}
                 <div className="absolute left-2 right-2 top-10 h-8 border-y border-[#C00A4A]/20 bg-[#C00A4A]/5 pointer-events-none rounded-lg" />
-                
-                {/* Top & Bottom 3D mask fades */}
                 <div className="absolute left-0 right-0 top-0 h-8 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none z-10" />
                 <div className="absolute left-0 right-0 bottom-0 h-8 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none z-10" />
                 
                 {/* Hour Wheel Dial Column */}
                 <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10" style={{ scrollSnapType: 'y mandatory' }}>
                   {hourOptions.map(h => {
-                    const isSel = pickerHour === h;
+                    const isSel = pickerStartHour === h;
                     return (
                       <button
                         type="button"
                         key={h}
-                        onClick={() => setPickerHour(h)}
+                        onClick={() => setPickerStartHour(h)}
                         className={`w-full h-8 flex items-center justify-center text-sm font-bold snap-center cursor-pointer transition-all ${
                           isSel ? 'text-[#C00A4A] text-lg font-black scale-110' : 'text-slate-400 hover:text-slate-600'
                         }`}
@@ -532,18 +692,17 @@ const CalendarTab = ({ setActiveTab }) => {
                   })}
                 </div>
 
-                {/* Center Divider colon */}
                 <span className="text-slate-400 font-extrabold px-1 z-20">:</span>
 
                 {/* Minute Wheel Dial Column */}
                 <div className="flex-1 h-28 overflow-y-auto snap-y snap-mandatory scrollbar-none text-center relative py-10" style={{ scrollSnapType: 'y mandatory' }}>
                   {minuteOptions.map(m => {
-                    const isSel = pickerMinute === m;
+                    const isSel = pickerStartMinute === m;
                     return (
                       <button
                         type="button"
                         key={m}
-                        onClick={() => setPickerMinute(m)}
+                        onClick={() => setPickerStartMinute(m)}
                         className={`w-full h-8 flex items-center justify-center text-sm font-bold snap-center cursor-pointer transition-all ${
                           isSel ? 'text-[#C00A4A] text-lg font-black scale-110' : 'text-slate-400 hover:text-slate-600'
                         }`}
@@ -554,18 +713,72 @@ const CalendarTab = ({ setActiveTab }) => {
                   })}
                 </div>
               </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center bg-[#C00A4A]/5 border border-dashed border-[#C00A4A]/25 rounded-2xl h-28 w-full p-4 text-center select-none">
-                <span className="text-2xl mb-1">☀️</span>
-                <p className="text-xs font-black text-[#C00A4A]">하루 종일 전체 선택 모드</p>
-                <p className="text-[10px] text-slate-500 font-bold mt-0.5">해당 일자의 모든 시간대(00:00 ~ 23:50)를 한 번에 선택합니다.</p>
+            )}
+
+            {timeMode === 'macro' && (
+              <div className="grid grid-cols-2 gap-1.5 max-h-28 overflow-y-auto p-1 border border-slate-100 rounded-2xl bg-slate-50/50">
+                {[
+                  { label: '☀️ 하루 종일', desc: '00:00 ~ 23:50', start: '00:00', end: '23:50' },
+                  { label: '🌅 오전', desc: '06:00 ~ 12:00', start: '06:00', end: '12:00' },
+                  { label: '☀️ 오후', desc: '12:00 ~ 18:00', start: '12:00', end: '18:00' },
+                  { label: '🌆 저녁', desc: '18:00 ~ 22:00', start: '18:00', end: '22:00' },
+                  { label: '🌙 밤/새벽', desc: '22:00 ~ 23:50', start: '22:00', end: '23:50' },
+                  { label: '🍜 점심시간', desc: '11:30 ~ 13:30', start: '11:30', end: '13:30' },
+                  { label: '💼 퇴근이후', desc: '18:00 ~ 23:50', start: '18:00', end: '23:50' }
+                ].map((macro) => {
+                  const filterTimes = MINUTES_10.filter(time => time.localeCompare(macro.start) >= 0 && time.localeCompare(macro.end) <= 0);
+                  const timeKeys = filterTimes.map(time => `${selectedDate}_${time}`);
+                  const isAllVoted = currentUser && timeKeys.every(k => (calendarVotes[k] || []).includes(currentUser.id));
+                  
+                  return (
+                    <button
+                      type="button"
+                      key={macro.label}
+                      onClick={() => {
+                        if (!currentUser) return;
+                        toggleTimeVotes(timeKeys, !isAllVoted);
+                      }}
+                      className={`py-2 px-2.5 rounded-xl border text-[11px] font-extrabold transition-all cursor-pointer text-left flex flex-col justify-center gap-0.5 active:scale-95 ${
+                        isAllVoted
+                          ? 'bg-rose-50 border-[#C00A4A] text-[#C00A4A]'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span>{macro.label}</span>
+                      <span className="text-[9px] opacity-70 font-mono font-medium">{macro.desc}</span>
+                    </button>
+                  );
+                })}
               </div>
             )}
 
             {/* Dial Vote Button */}
             {(() => {
-              if (timeMode === 'single') {
-                const targetTime = `${pickerHour}:${pickerMinute}`;
+              if (timeMode === 'range') {
+                const startTime = `${pickerStartHour}:${pickerStartMinute}`;
+                const endTime = `${pickerEndHour}:${pickerEndMinute}`;
+                const filterTimes = MINUTES_10.filter(time => time.localeCompare(startTime) >= 0 && time.localeCompare(endTime) <= 0);
+                const timeKeys = filterTimes.map(time => `${selectedDate}_${time}`);
+                const isAllVoted = currentUser && timeKeys.length > 0 && timeKeys.every(k => (calendarVotes[k] || []).includes(currentUser.id));
+
+                return (
+                  <button
+                    onClick={() => {
+                      if (!currentUser || timeKeys.length === 0) return;
+                      toggleTimeVotes(timeKeys, !isAllVoted);
+                    }}
+                    className={`w-full py-3 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer ${
+                      isAllVoted
+                        ? 'bg-rose-50 border border-[#C00A4A]/30 text-[#C00A4A]'
+                        : 'bg-[#C00A4A] hover:bg-[#9e083d] text-white'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
+                    {startTime} ~ {endTime} 범위 {isAllVoted ? '투표 취소' : '이 범위 투표'}
+                  </button>
+                );
+              } else if (timeMode === 'single') {
+                const targetTime = `${pickerStartHour}:${pickerStartMinute}`;
                 const targetKey = `${selectedDate}_${targetTime}`;
                 const isVoted = currentUser && (calendarVotes[targetKey] || []).includes(currentUser.id);
                 
@@ -582,52 +795,11 @@ const CalendarTab = ({ setActiveTab }) => {
                     }`}
                   >
                     <Clock className="w-3.5 h-3.5 shrink-0" />
-                    {pickerHour}:{pickerMinute} {isVoted ? '투표 취소' : '이 시간 투표'}
-                  </button>
-                );
-              } else if (timeMode === 'onwards') {
-                const startTime = `${pickerHour}:${pickerMinute}`;
-                const filterTimes = MINUTES_10.filter(time => time.localeCompare(startTime) >= 0);
-                const timeKeys = filterTimes.map(time => `${selectedDate}_${time}`);
-                const isAllRangeVoted = currentUser && timeKeys.every(k => (calendarVotes[k] || []).includes(currentUser.id));
-                
-                return (
-                  <button
-                    onClick={() => {
-                      if (!currentUser) return;
-                      toggleTimeVotes(timeKeys, !isAllRangeVoted);
-                    }}
-                    className={`w-full py-3 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer ${
-                      isAllRangeVoted
-                        ? 'bg-rose-50 border border-[#C00A4A]/30 text-[#C00A4A]'
-                        : 'bg-[#C00A4A] hover:bg-[#9e083d] text-white'
-                    }`}
-                  >
-                    <Clock className="w-3.5 h-3.5 shrink-0" />
-                    {pickerHour}:{pickerMinute}부터 그 이후 시간대 전체 {isAllRangeVoted ? '선택 취소' : '선택'}
-                  </button>
-                );
-              } else {
-                const timeKeys = MINUTES_10.map(time => `${selectedDate}_${time}`);
-                const isAllDayVoted = currentUser && timeKeys.every(k => (calendarVotes[k] || []).includes(currentUser.id));
-                
-                return (
-                  <button
-                    onClick={() => {
-                      if (!currentUser) return;
-                      toggleTimeVotes(timeKeys, !isAllDayVoted);
-                    }}
-                    className={`w-full py-3 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer ${
-                      isAllDayVoted
-                        ? 'bg-rose-50 border border-[#C00A4A]/30 text-[#C00A4A]'
-                        : 'bg-[#C00A4A] hover:bg-[#9e083d] text-white'
-                    }`}
-                  >
-                    <Clock className="w-3.5 h-3.5 shrink-0" />
-                    하루 종일 (00:00 ~ 23:50) {isAllDayVoted ? '선택 취소' : '선택'}
+                    {pickerStartHour}:{pickerStartMinute} {isVoted ? '투표 취소' : '이 시간 투표'}
                   </button>
                 );
               }
+              return null;
             })()}
           </div>
 
@@ -676,76 +848,91 @@ const CalendarTab = ({ setActiveTab }) => {
                       
                       {/* Time Slots under this Date */}
                       <div className="space-y-1">
-                        {slots.map(({ startTime, endTime, votes, keys }) => {
+                        {slots.map(({ startTime, endTime, votes, keys, peakTime }) => {
                           const isUserVoted = currentUser ? votes.includes(currentUser.id) : false;
                           const isBest = keys.some(k => bestCells.includes(k)) && maxVotes > 0;
                           
-                          const rangeLabel = startTime === endTime 
-                            ? startTime 
-                            : (startTime === '00:00' && endTime === '23:50' 
-                              ? '하루 종일' 
-                              : (endTime === '23:50' ? `${startTime} 이후 ~` : `${startTime} ~ ${endTime}`));
+                          const rangeLabel = startTime === '00:00' && endTime === '24:00' 
+                            ? '하루 종일' 
+                            : `${startTime} ~ ${endTime}`;
                           
                           return (
                             <div
                               key={`${date}_${startTime}`}
                               onClick={() => {
                                 setSelectedDate(date);
-                                const [h, m] = startTime.split(':');
-                                setPickerHour(h);
-                                setPickerMinute(m);
+                                const [sh, sm] = startTime.split(':');
+                                setPickerStartHour(sh);
+                                setPickerStartMinute(sm);
+                                if (endTime !== '24:00') {
+                                  const [eh, em] = endTime.split(':');
+                                  setPickerEndHour(eh);
+                                  setPickerEndMinute(em);
+                                } else {
+                                  setPickerEndHour('23');
+                                  setPickerEndMinute('50');
+                                }
                               }}
-                              className={`flex items-center justify-between p-2 rounded-xl border select-none transition-all cursor-pointer ${
+                              className={`flex flex-col gap-1 p-2 rounded-xl border select-none transition-all cursor-pointer ${
                                 isUserVoted
                                   ? 'bg-[#C00A4A]/5 border-[#C00A4A]/25'
                                   : 'bg-white border-slate-100 hover:bg-slate-50'
                               }`}
                             >
-                              <div className="flex items-center gap-1.5">
-                                <span className={`text-xs font-mono font-bold ${isUserVoted ? 'text-[#C00A4A]' : 'text-slate-700'}`}>
-                                  {rangeLabel}
-                                </span>
-                                {isBest && (
-                                  <span className="text-[8px] font-extrabold bg-[#C00A4A] text-white px-1 py-0.5 rounded leading-none">
-                                    Best
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`text-xs font-mono font-bold ${isUserVoted ? 'text-[#C00A4A]' : 'text-slate-700'}`}>
+                                    {rangeLabel}
                                   </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {isUserVoted && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleTimeVotes(keys, false);
-                                    }}
-                                    className="p-1 hover:bg-rose-100/80 rounded-lg text-rose-500 transition-colors cursor-pointer shrink-0"
-                                    title="내 투표 삭제"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                                <div className="flex -space-x-1 overflow-hidden">
-                                  {votes.slice(0, 3).map((vId) => (
-                                    <div
-                                      key={vId}
-                                      className="w-4 h-4 rounded-full border border-white flex items-center justify-center text-[8px]"
-                                      style={{ backgroundColor: getParticipantColor(vId) }}
-                                      title={getParticipantName(vId)}
-                                    >
-                                      {getParticipantEmoji(vId)}
-                                    </div>
-                                  ))}
-                                  {votes.length > 3 && (
-                                    <div className="w-4 h-4 rounded-full bg-slate-200 border border-white flex items-center justify-center text-[7px] font-extrabold text-slate-600">
-                                      +{votes.length - 3}
-                                    </div>
+                                  {isBest && (
+                                    <span className="text-[8px] font-extrabold bg-[#C00A4A] text-white px-1 py-0.5 rounded leading-none">
+                                      Best
+                                    </span>
                                   )}
                                 </div>
-                                <span className={`text-[10px] font-bold ${isUserVoted ? 'text-[#C00A4A]' : 'text-slate-400'}`}>
-                                  {participants.length > 0 ? Math.round((votes.length / participants.length) * 100) : 0}%
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  {isUserVoted && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleTimeVotes(keys, false);
+                                      }}
+                                      className="p-1 hover:bg-rose-100/80 rounded-lg text-rose-500 transition-colors cursor-pointer shrink-0"
+                                      title="내 투표 삭제"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  <div className="flex -space-x-1 overflow-hidden">
+                                    {votes.slice(0, 3).map((vId) => (
+                                      <div
+                                        key={vId}
+                                        className="w-4 h-4 rounded-full border border-white flex items-center justify-center text-[8px]"
+                                        style={{ backgroundColor: getParticipantColor(vId) }}
+                                        title={getParticipantName(vId)}
+                                      >
+                                        {getParticipantEmoji(vId)}
+                                      </div>
+                                    ))}
+                                    {votes.length > 3 && (
+                                      <div className="w-4 h-4 rounded-full bg-slate-200 border border-white flex items-center justify-center text-[7px] font-extrabold text-slate-600">
+                                        +{votes.length - 3}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <span className={`text-[10px] font-bold ${isUserVoted ? 'text-[#C00A4A]' : 'text-slate-400'}`}>
+                                    {participants.length > 0 ? Math.round((votes.length / participants.length) * 100) : 0}%
+                                  </span>
+                                </div>
                               </div>
+                              {peakTime && peakTime.votesCount > 0 && (
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <span className="text-[8px] bg-rose-100 text-[#C00A4A] font-bold px-1.5 py-0.5 rounded-md leading-none">
+                                    🔥 핵심: {peakTime.startTime} ~ {peakTime.endTime} ({peakTime.votesCount}명)
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           );
                         })}

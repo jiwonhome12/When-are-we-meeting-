@@ -198,6 +198,78 @@ const WrapupTab = () => {
     return ranked;
   }, [activeDayKey, calendarVotes]);
 
+  // Get active (voted) slots grouped by consecutive ranges for the active day
+  const groupedVotedSlotsForActiveDay = React.useMemo(() => {
+    const arr = [];
+    HOURS.forEach(time => {
+      const cellKey = `${activeDayKey}_${time}`;
+      const votes = (calendarVotes || {})[cellKey] || [];
+      if (votes.length > 0) {
+        arr.push({ time, votes });
+      }
+    });
+
+    if (arr.length === 0) return [];
+
+    const getMinutes = (timeStr) => {
+      const [h, m] = timeStr.split(':').map(Number);
+      return h * 60 + m;
+    };
+
+    const add10Minutes = (timeStr) => {
+      const [h, m] = timeStr.split(':').map(Number);
+      const total = h * 60 + m + 10;
+      const newH = Math.floor(total / 60) % 24;
+      const newM = total % 60;
+      return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+    };
+
+    const groups = [];
+    let currentGroup = null;
+
+    arr.forEach(slot => {
+      if (!currentGroup) {
+        currentGroup = {
+          startTime: slot.time,
+          endTime: slot.time,
+          slots: [slot]
+        };
+      } else {
+        const prevMinutes = getMinutes(currentGroup.endTime);
+        const currMinutes = getMinutes(slot.time);
+
+        if (currMinutes - prevMinutes === 10) {
+          currentGroup.endTime = slot.time;
+          currentGroup.slots.push(slot);
+        } else {
+          groups.push(currentGroup);
+          currentGroup = {
+            startTime: slot.time,
+            endTime: slot.time,
+            slots: [slot]
+          };
+        }
+      }
+    });
+    if (currentGroup) {
+      groups.push(currentGroup);
+    }
+
+    return groups.map(g => {
+      const unionVoters = Array.from(new Set(g.slots.flatMap(s => s.votes)));
+      const maxVotesCount = Math.max(...g.slots.map(s => s.votes.length));
+      const rangeStr = g.startTime === '00:00' && g.endTime === '23:50' 
+        ? '하루 종일' 
+        : `${g.startTime} ~ ${add10Minutes(g.endTime)}`;
+
+      return {
+        label: `${rangeStr} (최대 ${maxVotesCount}명 찬성)`,
+        value: rangeStr,
+        votesCount: maxVotesCount
+      };
+    }).sort((a, b) => b.votesCount - a.votesCount);
+  }, [activeDayKey, calendarVotes]);
+
   // Sort and rank locations based on votes count (supporting ties)
   const rankedLocations = React.useMemo(() => {
     const list = [...(locations || [])];
@@ -241,12 +313,14 @@ const WrapupTab = () => {
     }
   }, [rouletteResult, DAYS.length, (locations || []).length]);
 
-  // Auto-select the top voted time slot for the selected day
+  // Auto-select the top voted time slot or range for the selected day
   React.useEffect(() => {
-    if (rankedTimes.length > 0) {
+    if (groupedVotedSlotsForActiveDay.length > 0) {
+      setSelectedHour(groupedVotedSlotsForActiveDay[0].value);
+    } else if (rankedTimes.length > 0) {
       setSelectedHour(rankedTimes[0].time);
     }
-  }, [activeDayKey, rankedTimes]);
+  }, [activeDayKey, groupedVotedSlotsForActiveDay, rankedTimes]);
 
   const handleFinalize = () => {
     let finalLocName = '';
@@ -416,10 +490,19 @@ const WrapupTab = () => {
                   onChange={(e) => setSelectedHour(e.target.value)}
                   className="w-full glass-input rounded-2xl py-3 px-4 text-xs font-extrabold focus:border-[#C00A4A] cursor-pointer text-slate-850"
                 >
-                  <optgroup label="🔥 투표 결과 (인기 순위)">
+                  {groupedVotedSlotsForActiveDay.length > 0 && (
+                    <optgroup label="✨ 추천 시간 범위 (인기 순)">
+                      {groupedVotedSlotsForActiveDay.map((range, idx) => (
+                        <option key={range.value} value={range.value} className="text-slate-800 font-extrabold">
+                          🏆 {idx + 1}순위: {range.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  <optgroup label="🔥 투표 결과 (인기 10분 단위)">
                     {rankedTimes.map(rt => (
-                      <option key={rt.time} value={rt.time} className="text-slate-800 font-extrabold">
-                        🏆 {rt.rank}순위: {rt.time} ({rt.votesCount}명 찬성)
+                      <option key={rt.time} value={rt.time} className="text-slate-800 font-medium">
+                        ⏱️ {rt.rank}순위: {rt.time} ({rt.votesCount}명 찬성)
                       </option>
                     ))}
                     {rankedTimes.length === 0 && (

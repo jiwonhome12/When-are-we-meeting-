@@ -663,9 +663,10 @@ export const RoomProvider = ({ children }) => {
 
     localStorage.removeItem(`room_db_${roomCode}`);
 
-    const activeRooms = JSON.parse(localStorage.getItem('baro_yaksok_active_rooms') || '[]');
+    const userSuffix = currentUser?.id || 'guest';
+    const activeRooms = JSON.parse(localStorage.getItem(`baro_yaksok_active_rooms_${userSuffix}`) || '[]');
     const nextActive = activeRooms.filter(r => r.code !== roomCode);
-    localStorage.setItem('baro_yaksok_active_rooms', JSON.stringify(nextActive));
+    localStorage.setItem(`baro_yaksok_active_rooms_${userSuffix}`, JSON.stringify(nextActive));
 
     setRoomCode(null);
     setRoomInfo(null);

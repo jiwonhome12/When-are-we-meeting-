@@ -22,5 +22,8 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/kakao-place-api/, '')
       }
     }
+  },
+  build: {
+    chunkSizeWarningLimit: 1500
   }
 })
